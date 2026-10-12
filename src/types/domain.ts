@@ -76,7 +76,25 @@ export interface MatchSnapshot {
   players: Record<PlayerKey, PlayerState>
   initialDecks: Record<PlayerKey, string[]>
   mainCharacters: Record<PlayerKey, string>
+  /** contador manual do D20 (0–9) de cada lado, persistido junto do snapshot */
+  d20: Record<PlayerKey, number>
   updatedAt: string
+}
+
+/** Preenche campos novos com valores padrão para snapshots salvos antes deles existirem. */
+export function normalizeSnapshot(snapshot: MatchSnapshot): MatchSnapshot {
+  const normalizePlayer = (player: PlayerState): PlayerState => ({
+    ...player,
+    zones: { ...emptyZones(), ...player.zones },
+  })
+  return {
+    ...snapshot,
+    d20: snapshot.d20 ?? { player: 0, opponent: 0 },
+    players: {
+      player: normalizePlayer(snapshot.players.player),
+      opponent: normalizePlayer(snapshot.players.opponent),
+    },
+  }
 }
 
 export interface MatchRecord extends RecordModel {

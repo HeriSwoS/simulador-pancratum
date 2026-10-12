@@ -88,6 +88,7 @@ function makeSnapshot(deck: DeckRecord): MatchSnapshot {
       opponent: opponentDeck.map((c) => c.cardId),
     },
     mainCharacters: { player: mainId, opponent: mainId },
+    d20: { player: 0, opponent: 0 },
     updatedAt: new Date().toISOString(),
   }
 }

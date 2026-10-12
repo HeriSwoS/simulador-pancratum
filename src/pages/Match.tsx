@@ -11,6 +11,7 @@ import {
 import {
   ArrowLeft,
   ChevronDown,
+  ChevronUp,
   Crown,
   Eye,
   EyeOff,
@@ -47,6 +48,7 @@ import { listCards } from '@/services/cards'
 import { getMatch, saveMatchState } from '@/services/matches'
 import {
   emptyZones,
+  normalizeSnapshot,
   zoneIds,
   zoneLabels,
   type CardInstance,
@@ -183,6 +185,7 @@ function createResetSnapshot(current: MatchSnapshot): MatchSnapshot {
       player: { deck: playerDeck, hand: [], zones: playerZones },
       opponent: { deck: opponentDeck, hand: [], zones: opponentZones },
     },
+    d20: current.d20 ?? { player: 0, opponent: 0 },
     updatedAt: new Date().toISOString(),
   }
 }
@@ -209,7 +212,7 @@ export default function MatchPage() {
     Promise.all([getMatch(matchId), listCards()])
       .then(([record, allCards]) => {
         setMatch(record)
-        setState(record.state)
+        setState(normalizeSnapshot(record.state))
         setCards(allCards)
       })
       .catch((error) => {
@@ -402,6 +405,12 @@ export default function MatchPage() {
       y: Math.min(event.clientY, window.innerHeight - 430),
     })
   }
+  const setD20 = (player: PlayerKey, value: number) =>
+    update((draft) => {
+      const next: Record<PlayerKey, number> = { ...draft.d20 }
+      next[player] = Math.max(0, Math.min(9, value))
+      draft.d20 = next
+    })
   const reset = () => {
     if (
       !state ||
@@ -514,6 +523,7 @@ export default function MatchPage() {
               setSelected(null)
             } else draw('opponent')
           }}
+          onD20={setD20}
         />
         <div className="arena-divider">
           <span>ADVERSÁRIO</span>
@@ -545,6 +555,7 @@ export default function MatchPage() {
               setSelected(null)
             } else draw('player')
           }}
+          onD20={setD20}
         />
         <HandRow
           player="player"
@@ -653,6 +664,7 @@ interface BoardProps {
   onPreview: (card: CardInstance) => void
   onMenu: (event: MouseEvent, locator: Locator) => void
   onDeckSelected: () => void
+  onD20: (player: PlayerKey, value: number) => void
 }
 function Board(props: BoardProps) {
   const { player, state, cardMap, dragging, selected } = props
@@ -694,15 +706,10 @@ function Board(props: BoardProps) {
           ))}
         </div>
         <div className="board-column board-column--side">
-          <BoardZone
+          <D20Counter
+            value={state.d20?.[player] ?? 0}
             player={player}
-            zone="banishment"
-            kind="banishment"
-            state={state}
-            cardMap={cardMap}
-            dragging={dragging}
-            selected={selected}
-            {...cardHandlers(props)}
+            onChange={(next) => props.onD20(player, next)}
           />
           {sideZones.map(({ id, kind }) => (
             <BoardZone
@@ -723,6 +730,18 @@ function Board(props: BoardProps) {
             shuffling={props.shuffling}
             onClick={props.onDeckSelected}
             onShuffle={() => props.onShuffle(player)}
+          />
+        </div>
+        <div className="board-banish">
+          <BoardZone
+            player={player}
+            zone="banishment"
+            kind="banishment"
+            state={state}
+            cardMap={cardMap}
+            dragging={dragging}
+            selected={selected}
+            {...cardHandlers(props)}
           />
         </div>
       </div>
@@ -772,6 +791,8 @@ function BoardZone({
 }: BoardZoneProps) {
   const Icon = zoneKindIcon(kind)
   const instances = state.players[player].zones[zone]
+  const upright = instances.filter((card) => card.rotation === 0).length
+  const lying = instances.length - upright
   return (
     <div
       className={cn(
@@ -790,6 +811,16 @@ function BoardZone({
         <Icon />
       </div>
       <div className="zone-label">{zoneLabels[zone]}</div>
+      {kind === 'resource' && (
+        <div className="zone-res-count" aria-label="Contador de recursos">
+          <span className="up" title="Cartas em pé (disponíveis)">
+            <RotateCw /> {upright} em pé
+          </span>
+          <span className="down" title="Cartas deitadas (usadas)">
+            <RotateCw aria-label="deitada" /> {lying} deitada{lying === 1 ? '' : 's'}
+          </span>
+        </div>
+      )}
       {instances.length > 0 && <span className="zone-count">{instances.length}</span>}
       {instances.map((instance) => {
         const locator: Locator = { player, area: 'zone', zone, uid: instance.uid }
@@ -804,6 +835,7 @@ function BoardZone({
             onClick={onCardClick}
             onPreview={onPreview}
             onMenu={onMenu}
+            centered={kind === 'resource'}
           />
         )
       })}
@@ -815,6 +847,7 @@ function BoardCard({
   card,
   locator,
   selected,
+  centered,
   onDragStart,
   onClick,
   onPreview,
@@ -824,17 +857,18 @@ function BoardCard({
   card?: CardRecord
   locator: Locator
   selected: boolean
+  centered?: boolean
   onDragStart: BoardProps['onDragStart']
   onClick: BoardProps['onCardClick']
   onPreview: BoardProps['onPreview']
   onMenu: BoardProps['onMenu']
 }) {
-  const style: CSSProperties = {
-    left: `${instance.x}%`,
-    top: `${instance.y}%`,
+  const style = {
+    left: `${centered ? 50 : instance.x}%`,
+    top: `${centered ? 46 : instance.y}%`,
     zIndex: instance.z + 2,
-    transform: `rotate(${instance.rotation}deg)`,
-  }
+    '--card-rotation': `${instance.rotation}deg`,
+  } as CSSProperties
   return (
     <div
       className={cn('board-card-wrap', selected && 'card-selected')}
@@ -868,6 +902,62 @@ function BoardCard({
       >
         <MoreVertical />
       </button>
+    </div>
+  )
+}
+function D20Counter({
+  value,
+  player,
+  onChange,
+}: {
+  value: number
+  player: PlayerKey
+  onChange: (value: number) => void
+}) {
+  const [rolling, setRolling] = useState(false)
+  const roll = () => {
+    setRolling(true)
+    onChange(Math.floor(Math.random() * 10))
+    window.setTimeout(() => setRolling(false), 420)
+  }
+  const label = player === 'player' ? 'D20 — VOCÊ' : 'D20 — ADVERSÁRIO'
+  return (
+    <div className="d20-counter" onClick={roll} title="D20 — clique para rolar (0–9)">
+      <svg
+        viewBox="0 0 100 88"
+        className={cn('d20-glyph', rolling && 'd20-glyph--rolling')}
+        aria-hidden="true"
+      >
+        <polygon points="50,2 98,28 98,60 50,86 2,60 2,28" className="d20-shape" />
+        <polygon points="50,14 84,33 84,55 50,74 16,55 16,33" className="d20-face" />
+        <line x1="50" y1="2" x2="50" y2="14" className="d20-edge" />
+        <line x1="98" y1="28" x2="84" y2="33" className="d20-edge" />
+        <line x1="98" y1="60" x2="84" y2="55" className="d20-edge" />
+        <line x1="50" y1="86" x2="50" y2="74" className="d20-edge" />
+        <line x1="2" y1="60" x2="16" y2="55" className="d20-edge" />
+        <line x1="2" y1="28" x2="16" y2="33" className="d20-edge" />
+      </svg>
+      <span className="d20-value">{value}</span>
+      <span className="zone-label d20-label">D20</span>
+      <span className="sr-only">{label}</span>
+      <div className="d20-buttons" onClick={(e) => e.stopPropagation()}>
+        <button
+          type="button"
+          title="Diminuir"
+          disabled={value <= 0}
+          onClick={() => onChange(value - 1)}
+        >
+          <ChevronDown />
+        </button>
+        <button
+          type="button"
+          title="Aumentar"
+          disabled={value >= 9}
+          onClick={() => onChange(value + 1)}
+        >
+          <ChevronUp />
+        </button>
+      </div>
     </div>
   )
 }
@@ -1111,7 +1201,10 @@ function CardContextMenu({
           {card?.faceUp ? <EyeOff /> : <Eye />}
           {card?.faceUp ? 'Virar para baixo' : 'Virar para cima'}
         </button>
-        <div className="grid grid-cols-3 gap-1 px-2 py-1">
+        <div className="grid grid-cols-4 gap-1 px-2 py-1">
+          <button className="justify-center" onClick={() => onRotate(0)}>
+            0°
+          </button>
           <button className="justify-center" onClick={() => onRotate(90)}>
             90°
           </button>

@@ -556,10 +556,10 @@
     position: relative;
     margin: auto;
     display: grid;
-    grid-template-columns: 12.6% 1fr 12.6%;
+    grid-template-columns: 12.6% 1fr 12.6% 12.6%;
     gap: 0.8%;
-    width: min(96vw, 1500px);
-    aspect-ratio: 2.38/1;
+    width: min(96vw, 1650px);
+    aspect-ratio: 2.6/1;
     padding: 0.7%;
     border: 1px solid rgba(201, 162, 39, 0.22);
     border-radius: 12px;
@@ -580,6 +580,13 @@
   }
   .battle-board--opponent {
     transform: rotate(180deg);
+  }
+  .battle-board--opponent .d20-counter {
+    transform: rotate(180deg);
+  }
+  .battle-board--opponent .d20-buttons {
+    left: auto;
+    right: 3px;
   }
   .board-column,
   .board-center,
@@ -644,8 +651,7 @@
     color: #cfb134;
   }
   .board-zone--resource,
-  .board-zone--graveyard,
-  .board-zone--deck {
+  .board-zone--graveyard {
     color: #70bd4e;
   }
   .board-zone--banishment {
@@ -748,13 +754,173 @@
     outline-offset: 2px;
   }
   .board-column--side .board-zone {
-    min-height: 0;
+    flex: 1;
   }
-  .board-column--side .board-zone--banishment,
-  .board-column--side .board-zone--graveyard,
-  .board-column--side .board-zone--resource,
-  .board-column--side .board-zone--deck {
+  .board-banish {
+    display: flex;
+    flex-direction: column;
+  }
+  .board-banish .board-zone {
+    flex: 1;
+  }
+  .d20-counter {
+    position: relative;
     height: 24%;
+    display: grid;
+    place-items: center;
+    border: 2px solid rgba(201, 162, 39, 0.5);
+    border-radius: 8px;
+    background: rgba(53, 46, 44, 0.9);
+    box-shadow:
+      inset 0 0 18px rgba(0, 0, 0, 0.55),
+      0 0 7px rgba(201, 162, 39, 0.25);
+    color: #e7c85a;
+    cursor: pointer;
+    transition: 0.2s;
+    isolation: isolate;
+  }
+  .board-banish .zone-label {
+    bottom: 3%;
+    left: 10%;
+    right: 10%;
+  }
+  .board-banish .zone-watermark {
+    width: 36%;
+    height: 36%;
+  }
+  .board-banish .board-zone::before {
+    inset: 10%;
+  }
+  .board-banish .zone-count {
+    top: 6px;
+    right: 8px;
+  }
+  .d20-counter:hover {
+    box-shadow:
+      inset 0 0 18px rgba(0, 0, 0, 0.55),
+      0 0 10px rgba(231, 200, 90, 0.45);
+  }
+  .d20-glyph {
+    width: 58%;
+    max-height: 72%;
+    fill: rgba(24, 16, 10, 0.75);
+  }
+  .d20-glyph--rolling {
+    animation: d20-roll 0.42s ease;
+  }
+  .d20-shape {
+    fill: rgba(28, 18, 10, 0.6);
+    stroke: #e7c85a;
+    stroke-width: 3;
+  }
+  .d20-face {
+    fill: rgba(201, 162, 39, 0.12);
+    stroke: rgba(231, 200, 90, 0.75);
+    stroke-width: 2;
+  }
+  .d20-edge {
+    stroke: rgba(231, 200, 90, 0.6);
+    stroke-width: 2;
+  }
+  .d20-value {
+    position: absolute;
+    z-index: 2;
+    font-family: Cinzel, serif;
+    font-weight: 800;
+    font-size: clamp(12px, 1.1vw, 20px);
+    color: #f7e6a6;
+    text-shadow: 0 1px 3px #000;
+    pointer-events: none;
+  }
+  .d20-label {
+    height: auto;
+    min-height: 0;
+    left: 8%;
+    right: 8%;
+    bottom: 2.5%;
+  }
+  .d20-buttons {
+    position: absolute;
+    z-index: 3;
+    left: 3px;
+    top: 3px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .d20-buttons button {
+    display: grid;
+    place-items: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: rgba(11, 8, 6, 0.9);
+    color: #e7c85a;
+    border: 1px solid rgba(201, 162, 39, 0.45);
+  }
+  .d20-buttons button:disabled {
+    opacity: 0.4;
+  }
+  .d20-buttons svg {
+    width: 11px;
+  }
+  .board-banish {
+    position: relative;
+  }
+  @keyframes d20-roll {
+    0% {
+      transform: rotate(0);
+    }
+    40% {
+      transform: rotate(-14deg) scale(1.08);
+    }
+    70% {
+      transform: rotate(10deg) scale(0.96);
+    }
+    100% {
+      transform: rotate(0);
+    }
+  }
+  .zone-res-count {
+    position: absolute;
+    z-index: 25;
+    bottom: 20%;
+    left: 3px;
+    right: 3px;
+    display: grid;
+    grid-auto-flow: column;
+    place-items: center;
+    gap: 2px;
+    font-family: Cinzel, serif;
+    font-size: clamp(5px, 0.55vw, 9px);
+    font-weight: 700;
+    color: #eaf6df;
+    background: rgba(10, 7, 5, 0.85);
+    border-block: 1px solid rgba(112, 189, 78, 0.55);
+    text-shadow: 0 1px 1px #000;
+  }
+  .zone-res-count svg {
+    width: 9px;
+    height: 9px;
+    flex: none;
+  }
+  .zone-res-count svg[aria-label='deitada'] {
+    transform: rotate(90deg);
+  }
+  .zone-res-count .up {
+    color: #8fd06a;
+  }
+  .zone-res-count .down {
+    color: #c9a94e;
+  }
+  .zone-res-count .down svg[aria-label='deitada'] {
+    transform: none;
+  }
+  .board-zone .board-card-wrap {
+    transform: translate(-50%, -50%) rotate(var(--card-rotation, 0deg));
+  }
+  .board-zone--resource .zone-res-count {
+    z-index: 26;
   }
   .deck-stack {
     position: absolute;
@@ -1041,6 +1207,12 @@
   .battle-board {
     width: 700px;
   }
+  .battle-board .board-banish {
+    display: none;
+  }
+  .battle-board .d20-counter {
+    display: none;
+  }
   .zone-label {
     font-size: 5px;
   }
@@ -1081,6 +1253,10 @@
   }
   .battle-board {
     width: 670px;
+  }
+  .battle-board .board-banish,
+  .battle-board .d20-counter {
+    display: none;
   }
   .hand-area {
     position: sticky;
