@@ -7,6 +7,7 @@ import {
   type CSSProperties,
   type DragEvent,
   type MouseEvent,
+  type ReactNode,
 } from 'react'
 import {
   ArrowLeft,
@@ -186,6 +187,8 @@ function createResetSnapshot(current: MatchSnapshot): MatchSnapshot {
       opponent: { deck: opponentDeck, hand: [], zones: opponentZones },
     },
     d20: current.d20 ?? { player: 0, opponent: 0 },
+    counter: current.counter ?? { player: 0, opponent: 0 },
+    version: 2,
     updatedAt: new Date().toISOString(),
   }
 }
@@ -289,13 +292,17 @@ export default function MatchPage() {
     window.setTimeout(() => setShuffling(null), 650)
     toast({ title: 'Baralho embaralhado' })
   }
-  const moveToZone = (locator: Locator, player: PlayerKey, zone: ZoneId, x = 10, y = 5) =>
+  const moveToZone = (locator: Locator, player: PlayerKey, zone: ZoneId, x?: number, y?: number) =>
     update((draft) => {
       const card = takeCard(draft, locator)
       if (!card) return
       const list = draft.players[player].zones[zone]
-      card.x = Math.max(0, Math.min(34, x))
-      card.y = Math.max(0, Math.min(16, y))
+      // x/y marcam o CENTRO da carta (em % da zona); sem coordenada, espalha a partir do centro
+      const index = list.length
+      const spreadX = Math.min(index, 7) * 2.5
+      const spreadY = Math.min(index, 6) * 1.7
+      card.x = Math.max(31.5, Math.min(68.5, x ?? 50 + spreadX))
+      card.y = Math.max(31.5, Math.min(68.5, y ?? 50 + spreadY))
       card.z = list.reduce((max, item) => Math.max(max, item.z), 0) + 1
       list.push(card)
     })
@@ -345,13 +352,7 @@ export default function MatchPage() {
   }
   const handleZoneClick = (player: PlayerKey, zone: ZoneId) => {
     if (selected) {
-      moveToZone(
-        selected,
-        player,
-        zone,
-        Math.min(state?.players[player].zones[zone].length || 0, 7) * 2.5,
-        Math.min(state?.players[player].zones[zone].length || 0, 6) * 1.7,
-      )
+      moveToZone(selected, player, zone)
       setSelected(null)
       return
     }
@@ -362,11 +363,12 @@ export default function MatchPage() {
     const locator = parseDrag(event)
     if (!locator) return
     const rect = event.currentTarget.getBoundingClientRect()
-    let x = ((event.clientX - rect.left) / rect.width) * 100 - 33
-    let y = ((event.clientY - rect.top) / rect.height) * 100 - 42
+    // o centro da carta fica exatamente sob o cursor (coordenadas em % da zona)
+    let x = ((event.clientX - rect.left) / rect.width) * 100
+    let y = ((event.clientY - rect.top) / rect.height) * 100
     if (player === 'opponent') {
-      x = 34 - x
-      y = 16 - y
+      x = 100 - x
+      y = 100 - y
     }
     moveToZone(locator, player, zone, x, y)
     setDragging(null)
@@ -410,6 +412,12 @@ export default function MatchPage() {
       const next: Record<PlayerKey, number> = { ...draft.d20 }
       next[player] = Math.max(0, Math.min(9, value))
       draft.d20 = next
+    })
+  const setCounter = (player: PlayerKey, value: number) =>
+    update((draft) => {
+      const next: Record<PlayerKey, number> = { ...draft.counter }
+      next[player] = Math.max(0, Math.min(9, value))
+      draft.counter = next
     })
   const reset = () => {
     if (
@@ -524,6 +532,7 @@ export default function MatchPage() {
             } else draw('opponent')
           }}
           onD20={setD20}
+          onCounter={setCounter}
         />
         <div className="arena-divider">
           <span>ADVERSÁRIO</span>
@@ -556,6 +565,7 @@ export default function MatchPage() {
             } else draw('player')
           }}
           onD20={setD20}
+          onCounter={setCounter}
         />
         <HandRow
           player="player"
@@ -635,7 +645,7 @@ export default function MatchPage() {
             setMenu(null)
           }}
           onZone={(zone) => {
-            moveToZone(menu.locator, menu.locator.player, zone, 9, 5)
+            moveToZone(menu.locator, menu.locator.player, zone)
             setMenu(null)
           }}
           onDelete={() => {
@@ -665,6 +675,7 @@ interface BoardProps {
   onMenu: (event: MouseEvent, locator: Locator) => void
   onDeckSelected: () => void
   onD20: (player: PlayerKey, value: number) => void
+  onCounter: (player: PlayerKey, value: number) => void
 }
 function Board(props: BoardProps) {
   const { player, state, cardMap, dragging, selected } = props
@@ -699,6 +710,16 @@ function Board(props: BoardProps) {
                   cardMap={cardMap}
                   dragging={dragging}
                   selected={selected}
+                  widgets={
+                    zone === 'main' ? (
+                      <MatchWidgets
+                        d20={state.d20?.[player] ?? 0}
+                        counter={state.counter?.[player] ?? 0}
+                        onD20={(value) => props.onD20(player, value)}
+                        onCounter={(value) => props.onCounter(player, value)}
+                      />
+                    ) : undefined
+                  }
                   {...cardHandlers(props)}
                 />
               ))}
@@ -706,11 +727,6 @@ function Board(props: BoardProps) {
           ))}
         </div>
         <div className="board-column board-column--side">
-          <D20Counter
-            value={state.d20?.[player] ?? 0}
-            player={player}
-            onChange={(next) => props.onD20(player, next)}
-          />
           {sideZones.map(({ id, kind }) => (
             <BoardZone
               key={id}
@@ -767,6 +783,7 @@ interface BoardZoneProps {
   cardMap: Map<string, CardRecord>
   dragging: Locator | null
   selected: Locator | null
+  widgets?: ReactNode
   onDrop: BoardProps['onDrop']
   onZoneClick: BoardProps['onZoneClick']
   onDragStart: BoardProps['onDragStart']
@@ -782,6 +799,7 @@ function BoardZone({
   cardMap,
   dragging,
   selected,
+  widgets,
   onDrop,
   onZoneClick,
   onDragStart,
@@ -810,7 +828,9 @@ function BoardZone({
       <div className="zone-watermark">
         <Icon />
       </div>
-      <div className="zone-label">{zoneLabels[zone]}</div>
+      <div className={cn('zone-label', zone === 'main' && 'zone-label--top')}>
+        {zoneLabels[zone]}
+      </div>
       {kind === 'resource' && (
         <div className="zone-res-count" aria-label="Contador de recursos">
           <span className="up" title="Cartas em pé (disponíveis)">
@@ -835,19 +855,19 @@ function BoardZone({
             onClick={onCardClick}
             onPreview={onPreview}
             onMenu={onMenu}
-            centered={kind === 'resource'}
           />
         )
       })}
+      {zone === 'main' && widgets}
     </div>
   )
 }
+
 function BoardCard({
   instance,
   card,
   locator,
   selected,
-  centered,
   onDragStart,
   onClick,
   onPreview,
@@ -857,15 +877,14 @@ function BoardCard({
   card?: CardRecord
   locator: Locator
   selected: boolean
-  centered?: boolean
   onDragStart: BoardProps['onDragStart']
   onClick: BoardProps['onCardClick']
   onPreview: BoardProps['onPreview']
   onMenu: BoardProps['onMenu']
 }) {
   const style = {
-    left: `${centered ? 50 : instance.x}%`,
-    top: `${centered ? 46 : instance.y}%`,
+    left: `${instance.x}%`,
+    top: `${instance.y}%`,
     zIndex: instance.z + 2,
     '--card-rotation': `${instance.rotation}deg`,
   } as CSSProperties
@@ -905,55 +924,63 @@ function BoardCard({
     </div>
   )
 }
-function D20Counter({
-  value,
-  player,
-  onChange,
+function MatchWidgets({
+  d20,
+  counter,
+  onD20,
+  onCounter,
 }: {
-  value: number
-  player: PlayerKey
-  onChange: (value: number) => void
+  d20: number
+  counter: number
+  onD20: (value: number) => void
+  onCounter: (value: number) => void
 }) {
   const [rolling, setRolling] = useState(false)
   const roll = () => {
     setRolling(true)
-    onChange(Math.floor(Math.random() * 10))
+    onD20(Math.floor(Math.random() * 10))
     window.setTimeout(() => setRolling(false), 420)
   }
-  const label = player === 'player' ? 'D20 — VOCÊ' : 'D20 — ADVERSÁRIO'
   return (
-    <div className="d20-counter" onClick={roll} title="D20 — clique para rolar (0–9)">
-      <svg
-        viewBox="0 0 100 88"
-        className={cn('d20-glyph', rolling && 'd20-glyph--rolling')}
-        aria-hidden="true"
+    <div className="main-widgets" onClick={(e) => e.stopPropagation()}>
+      <button
+        type="button"
+        className="widget-chip widget-d20"
+        onClick={roll}
+        title="D20 — clique para rolar (0–9)"
       >
-        <polygon points="50,2 98,28 98,60 50,86 2,60 2,28" className="d20-shape" />
-        <polygon points="50,14 84,33 84,55 50,74 16,55 16,33" className="d20-face" />
-        <line x1="50" y1="2" x2="50" y2="14" className="d20-edge" />
-        <line x1="98" y1="28" x2="84" y2="33" className="d20-edge" />
-        <line x1="98" y1="60" x2="84" y2="55" className="d20-edge" />
-        <line x1="50" y1="86" x2="50" y2="74" className="d20-edge" />
-        <line x1="2" y1="60" x2="16" y2="55" className="d20-edge" />
-        <line x1="2" y1="28" x2="16" y2="33" className="d20-edge" />
-      </svg>
-      <span className="d20-value">{value}</span>
-      <span className="zone-label d20-label">D20</span>
-      <span className="sr-only">{label}</span>
-      <div className="d20-buttons" onClick={(e) => e.stopPropagation()}>
+        <svg
+          viewBox="0 0 100 88"
+          className={cn('d20-glyph', rolling && 'd20-glyph--rolling')}
+          aria-hidden="true"
+        >
+          <polygon points="50,2 98,28 98,60 50,86 2,60 2,28" className="d20-shape" />
+          <polygon points="50,14 84,33 84,55 50,74 16,55 16,33" className="d20-face" />
+          <line x1="50" y1="2" x2="50" y2="14" className="d20-edge" />
+          <line x1="98" y1="28" x2="84" y2="33" className="d20-edge" />
+          <line x1="98" y1="60" x2="84" y2="55" className="d20-edge" />
+          <line x1="50" y1="86" x2="50" y2="74" className="d20-edge" />
+          <line x1="2" y1="60" x2="16" y2="55" className="d20-edge" />
+          <line x1="2" y1="28" x2="16" y2="33" className="d20-edge" />
+        </svg>
+        <span className="widget-value">{d20}</span>
+        <span className="sr-only">D20</span>
+      </button>
+      <div className="widget-chip widget-counter" title="Contador (0–9)">
         <button
           type="button"
           title="Diminuir"
-          disabled={value <= 0}
-          onClick={() => onChange(value - 1)}
+          disabled={counter <= 0}
+          onClick={() => onCounter(counter - 1)}
         >
           <ChevronDown />
         </button>
+        <span className="widget-value">{counter}</span>
         <button
           type="button"
           title="Aumentar"
-          disabled={value >= 9}
-          onClick={() => onChange(value + 1)}
+          disabled={counter >= 9}
+          onClick={() => onCounter(counter + 1)}
         >
           <ChevronUp />
         </button>

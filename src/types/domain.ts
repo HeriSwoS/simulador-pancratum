@@ -72,12 +72,14 @@ export interface PlayerState {
 }
 
 export interface MatchSnapshot {
-  version: 1
+  version: number
   players: Record<PlayerKey, PlayerState>
   initialDecks: Record<PlayerKey, string[]>
   mainCharacters: Record<PlayerKey, string>
-  /** contador manual do D20 (0–9) de cada lado, persistido junto do snapshot */
+  /** resultado rolado no d20 (0–9) de cada lado, persistido junto do snapshot */
   d20: Record<PlayerKey, number>
+  /** contador numérico manual (0–9) de cada lado, independente do d20 */
+  counter: Record<PlayerKey, number>
   updatedAt: string
 }
 
@@ -89,7 +91,9 @@ export function normalizeSnapshot(snapshot: MatchSnapshot): MatchSnapshot {
   })
   return {
     ...snapshot,
+    version: 2,
     d20: snapshot.d20 ?? { player: 0, opponent: 0 },
+    counter: snapshot.counter ?? { player: 0, opponent: 0 },
     players: {
       player: normalizePlayer(snapshot.players.player),
       opponent: normalizePlayer(snapshot.players.opponent),

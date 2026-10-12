@@ -78,7 +78,7 @@ function makeSnapshot(deck: DeckRecord): MatchSnapshot {
     })
   }
   return {
-    version: 1,
+    version: 2,
     players: {
       player: { deck: playerDeck, hand: [], zones: playerZones },
       opponent: { deck: opponentDeck, hand: [], zones: opponentZones },
@@ -89,6 +89,7 @@ function makeSnapshot(deck: DeckRecord): MatchSnapshot {
     },
     mainCharacters: { player: mainId, opponent: mainId },
     d20: { player: 0, opponent: 0 },
+    counter: { player: 0, opponent: 0 },
     updatedAt: new Date().toISOString(),
   }
 }

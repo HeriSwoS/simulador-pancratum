@@ -581,12 +581,13 @@
   .battle-board--opponent {
     transform: rotate(180deg);
   }
-  .battle-board--opponent .d20-counter {
-    transform: rotate(180deg);
-  }
-  .battle-board--opponent .d20-buttons {
-    left: auto;
-    right: 3px;
+  /* MESMO TAMANHO em todas as zonas: as colunas estreitas ficam com a mesma
+     largura de uma zona do centro (1fr ≈ largura de uma zona das linhas de 5),
+     e todas recebem a mesma fatia de altura (flex: 1) — ataque, defesa,
+     equipamentos, principal, lendárias, recursos, cemitério, baralho e
+     banimento ficam idênticas */
+  .battle-board {
+    grid-template-columns: 1fr 5.34fr 1fr 1fr;
   }
   .board-column,
   .board-center,
@@ -597,22 +598,19 @@
   }
   .board-column {
     flex-direction: column;
-  }
-  .board-column .board-zone {
-    flex: 1;
+    gap: 2%;
   }
   .board-center {
     flex-direction: column;
-    gap: 2.2%;
+    gap: 2%;
   }
   .board-row {
     flex: 1;
   }
-  .board-row .board-zone {
+  .board-row .board-zone,
+  .board-column .board-zone,
+  .board-banish .board-zone {
     flex: 1;
-  }
-  .board-column--side {
-    gap: 1.4%;
   }
   .board-zone {
     position: relative;
@@ -713,13 +711,14 @@
   }
   .board-card-wrap {
     position: absolute;
-    width: 63%;
+    width: 66%;
     aspect-ratio: 63/88;
     cursor: grab;
-    transition:
-      transform 0.22s ease,
-      filter 0.18s ease;
+    transition: filter 0.18s ease;
     touch-action: none;
+    /* left/top já apontam para o CENTRO da carta (x/y em % da zona) */
+    translate: -50% -50%;
+    transform: rotate(var(--card-rotation, 0deg));
   }
   .board-card-wrap:active {
     cursor: grabbing;
@@ -753,31 +752,9 @@
     outline: 2px solid #f0d77b;
     outline-offset: 2px;
   }
-  .board-column--side .board-zone {
-    flex: 1;
-  }
   .board-banish {
     display: flex;
     flex-direction: column;
-  }
-  .board-banish .board-zone {
-    flex: 1;
-  }
-  .d20-counter {
-    position: relative;
-    height: 24%;
-    display: grid;
-    place-items: center;
-    border: 2px solid rgba(201, 162, 39, 0.5);
-    border-radius: 8px;
-    background: rgba(53, 46, 44, 0.9);
-    box-shadow:
-      inset 0 0 18px rgba(0, 0, 0, 0.55),
-      0 0 7px rgba(201, 162, 39, 0.25);
-    color: #e7c85a;
-    cursor: pointer;
-    transition: 0.2s;
-    isolation: isolate;
   }
   .board-banish .zone-label {
     bottom: 3%;
@@ -795,18 +772,73 @@
     top: 6px;
     right: 8px;
   }
-  .d20-counter:hover {
-    box-shadow:
-      inset 0 0 18px rgba(0, 0, 0, 0.55),
-      0 0 10px rgba(231, 200, 90, 0.45);
+  /* d20 + contador: elementos SEPARADOS e discretos, logo abaixo do personagem principal */
+  .main-widgets {
+    position: absolute;
+    left: 4%;
+    right: 4%;
+    bottom: 3px;
+    z-index: 26;
+    display: flex;
+    justify-content: center;
+    align-items: stretch;
+    gap: 4px;
   }
-  .d20-glyph {
-    width: 58%;
-    max-height: 72%;
+  .widget-chip {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    height: 20px;
+    min-width: 20px;
+    padding: 0 3px;
+    border-radius: 6px;
+    border: 1px solid rgba(201, 162, 39, 0.5);
+    background: rgba(11, 8, 6, 0.92);
+    color: #e7c85a;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+  }
+  .widget-chip button {
+    display: grid;
+    place-items: center;
+    width: 14px;
+    height: 14px;
+    border-radius: 4px;
+    color: #e7c85a;
+  }
+  .widget-chip button:hover {
+    background: rgba(201, 162, 39, 0.16);
+  }
+  .widget-chip button:disabled {
+    opacity: 0.35;
+  }
+  .widget-chip button svg {
+    width: 10px;
+    height: 10px;
+  }
+  .widget-d20 {
+    cursor: pointer;
+  }
+  .widget-d20:hover {
+    box-shadow: 0 0 8px rgba(231, 200, 90, 0.4);
+  }
+  .widget-d20 .d20-glyph {
+    width: 13px;
+    height: 12px;
     fill: rgba(24, 16, 10, 0.75);
+  }
+  .widget-value {
+    min-width: 10px;
+    text-align: center;
+    font-family: Cinzel, serif;
+    font-weight: 800;
+    font-size: 11px;
+    line-height: 1;
+    text-shadow: 0 1px 2px #000;
   }
   .d20-glyph--rolling {
     animation: d20-roll 0.42s ease;
+    transform-origin: 50% 50%;
   }
   .d20-shape {
     fill: rgba(28, 18, 10, 0.6);
@@ -821,48 +853,6 @@
   .d20-edge {
     stroke: rgba(231, 200, 90, 0.6);
     stroke-width: 2;
-  }
-  .d20-value {
-    position: absolute;
-    z-index: 2;
-    font-family: Cinzel, serif;
-    font-weight: 800;
-    font-size: clamp(12px, 1.1vw, 20px);
-    color: #f7e6a6;
-    text-shadow: 0 1px 3px #000;
-    pointer-events: none;
-  }
-  .d20-label {
-    height: auto;
-    min-height: 0;
-    left: 8%;
-    right: 8%;
-    bottom: 2.5%;
-  }
-  .d20-buttons {
-    position: absolute;
-    z-index: 3;
-    left: 3px;
-    top: 3px;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-  .d20-buttons button {
-    display: grid;
-    place-items: center;
-    width: 18px;
-    height: 18px;
-    border-radius: 50%;
-    background: rgba(11, 8, 6, 0.9);
-    color: #e7c85a;
-    border: 1px solid rgba(201, 162, 39, 0.45);
-  }
-  .d20-buttons button:disabled {
-    opacity: 0.4;
-  }
-  .d20-buttons svg {
-    width: 11px;
   }
   .board-banish {
     position: relative;
@@ -880,6 +870,10 @@
     100% {
       transform: rotate(0);
     }
+  }
+  .zone-label--top {
+    top: 3.5%;
+    bottom: auto;
   }
   .zone-res-count {
     position: absolute;
@@ -916,9 +910,7 @@
   .zone-res-count .down svg[aria-label='deitada'] {
     transform: none;
   }
-  .board-zone .board-card-wrap {
-    transform: translate(-50%, -50%) rotate(var(--card-rotation, 0deg));
-  }
+  /* (centralização das cartas agora embutida em .board-card-wrap) */
   .board-zone--resource .zone-res-count {
     z-index: 26;
   }
@@ -1210,9 +1202,6 @@
   .battle-board .board-banish {
     display: none;
   }
-  .battle-board .d20-counter {
-    display: none;
-  }
   .zone-label {
     font-size: 5px;
   }
@@ -1254,8 +1243,7 @@
   .battle-board {
     width: 670px;
   }
-  .battle-board .board-banish,
-  .battle-board .d20-counter {
+  .battle-board .board-banish {
     display: none;
   }
   .hand-area {
