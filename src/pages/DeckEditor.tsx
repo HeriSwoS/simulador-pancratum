@@ -9,6 +9,7 @@ import {
   Plus,
   Save,
   Search,
+  Trash2,
   X,
 } from 'lucide-react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
@@ -66,6 +67,24 @@ export default function DeckEditorPage() {
     if (cardId) {
       setLegendaries((old) => old.filter((id) => id !== cardId))
     }
+  }
+
+  const removeItem = (cardId: string) => {
+    setItems((old) => old.filter((item) => item.cardId !== cardId))
+    const card = map.get(cardId)
+    toast({
+      title: 'Carta removida do baralho',
+      description: card ? `“${card.name}” foi retirada do baralho principal.` : undefined,
+    })
+  }
+
+  const removeMainCharacter = () => {
+    const card = map.get(main)
+    setMain('')
+    toast({
+      title: 'Personagem Principal removido',
+      description: card ? `“${card.name}” voltou para a coleção.` : undefined,
+    })
   }
 
   const adjust = (cardId: string, delta: number) => {
@@ -238,10 +257,51 @@ export default function DeckEditorPage() {
             <p className="text-sm text-muted-foreground">Ajuste livremente as quantidades.</p>
           </div>
           <div className="border-b border-border bg-primary/5 p-4">
-            <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-primary">
-              <Crown className="h-4 w-4" />
-              Personagem principal
-            </h3>
+            <div className="mb-2 flex items-center justify-between">
+              <h3 className="flex items-center gap-2 text-sm font-semibold text-primary">
+                <Crown className="h-4 w-4" />
+                Personagem principal
+              </h3>
+              {main ? (
+                <button
+                  type="button"
+                  onClick={removeMainCharacter}
+                  className="flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive"
+                  title="Remover personagem principal"
+                >
+                  <X className="h-3.5 w-3.5" />
+                  <span>Remover</span>
+                </button>
+              ) : null}
+            </div>
+            {main && map.get(main) ? (
+              <div className="mb-2 flex items-center gap-2.5 rounded-lg border border-primary/40 bg-background/60 p-2">
+                <CardVisual
+                  card={map.get(main)}
+                  className="w-10 shrink-0 rounded"
+                  showDetails={false}
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-xs font-semibold">{map.get(main)?.name}</p>
+                  <p className="text-[10px] text-muted-foreground">
+                    {map.get(main)?.card_class === 'mestre'
+                      ? '⭐ Classe Mestre'
+                      : map.get(main)?.card_class === 'lenda'
+                        ? '👑 Classe Lenda'
+                        : 'Personagem'}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={removeMainCharacter}
+                  className="rounded p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                  title="Tirar personagem e voltar para a coleção"
+                  aria-label="Tirar personagem principal"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            ) : null}
             <select
               value={main}
               onChange={(e) => {
@@ -257,7 +317,7 @@ export default function DeckEditorPage() {
               }}
               className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
             >
-              <option value="">Escolher personagem...</option>
+              <option value="">{main ? 'Trocar personagem...' : 'Escolher personagem...'}</option>
               {cards.map((card) => (
                 <option key={card.id} value={card.id}>
                   {card.name}{' '}
@@ -364,16 +424,36 @@ export default function DeckEditorPage() {
                           : ''}
                       </p>
                     </div>
-                    <div className="flex items-center rounded-md border border-border">
+                    <div className="flex items-center gap-1">
+                      <div className="flex items-center rounded-md border border-border">
+                        <button
+                          type="button"
+                          className="p-1.5 hover:text-primary"
+                          onClick={() => adjust(card.id, -1)}
+                          title="Diminuir 1 cópia"
+                          aria-label={`Diminuir cópia de ${card.name}`}
+                        >
+                          <Minus className="h-3.5 w-3.5" />
+                        </button>
+                        <span className="w-6 text-center font-display text-sm">{quantity}</span>
+                        <button
+                          type="button"
+                          className="p-1.5 hover:text-primary"
+                          onClick={() => adjust(card.id, 1)}
+                          title="Adicionar 1 cópia"
+                          aria-label={`Adicionar cópia de ${card.name}`}
+                        >
+                          <Plus className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
                       <button
-                        className="p-2 hover:text-primary"
-                        onClick={() => adjust(card.id, -1)}
+                        type="button"
+                        className="rounded-md border border-border p-1.5 text-muted-foreground hover:border-destructive/50 hover:bg-destructive/10 hover:text-destructive"
+                        onClick={() => removeItem(card.id)}
+                        title="Remover todas as cópias desta carta"
+                        aria-label={`Remover ${card.name} do baralho`}
                       >
-                        <Minus className="h-3.5 w-3.5" />
-                      </button>
-                      <span className="w-7 text-center font-display text-sm">{quantity}</span>
-                      <button className="p-2 hover:text-primary" onClick={() => adjust(card.id, 1)}>
-                        <Plus className="h-3.5 w-3.5" />
+                        <Trash2 className="h-3.5 w-3.5" />
                       </button>
                     </div>
                   </div>
