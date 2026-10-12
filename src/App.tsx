@@ -14,6 +14,7 @@ import DeckEditorPage from '@/pages/DeckEditor'
 import PlayLobbyPage from '@/pages/PlayLobby'
 import MatchPage from '@/pages/Match'
 import ProfilePage from '@/pages/Profile'
+import LorePage from '@/pages/Lore'
 
 export default function App() {
   return (
@@ -38,6 +39,9 @@ export default function App() {
                 <Route path="/baralhos/:id" element={<DeckEditorPage />} />
                 <Route path="/decks" element={<Navigate to="/baralhos" replace />} />
                 <Route path="/jogar" element={<PlayLobbyPage />} />
+                <Route path="/partidas" element={<Navigate to="/jogar" replace />} />
+                <Route path="/historia" element={<LorePage />} />
+                <Route path="/lore" element={<Navigate to="/historia" replace />} />
                 <Route path="/perfil" element={<ProfilePage />} />
               </Route>
             </Route>

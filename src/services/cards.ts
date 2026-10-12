@@ -37,6 +37,8 @@ export async function importCards(files: File[]): Promise<CardRecord[]> {
   return created
 }
 
+import type { InvocationCost } from '@/types/domain'
+
 export interface UpdateCardInput {
   name?: string
   card_type?: CardType
@@ -47,6 +49,13 @@ export interface UpdateCardInput {
   attack?: number
   defense?: number
   description?: string
+  cost?: InvocationCost | null
+  card_archetype?: string
+  magic_school?: string
+  race?: string
+  summon_mode?: string
+  abilities?: string
+  effects?: string
 }
 
 export async function updateCardDetails(id: string, data: UpdateCardInput): Promise<CardRecord> {
@@ -60,6 +69,13 @@ export async function updateCardDetails(id: string, data: UpdateCardInput): Prom
     if (data.attack !== undefined) form.set('attack', String(data.attack))
     if (data.defense !== undefined) form.set('defense', String(data.defense))
     if (data.description !== undefined) form.set('description', data.description)
+    if (data.cost !== undefined) form.set('cost', JSON.stringify(data.cost))
+    if (data.card_archetype !== undefined) form.set('card_archetype', data.card_archetype)
+    if (data.magic_school !== undefined) form.set('magic_school', data.magic_school)
+    if (data.race !== undefined) form.set('race', data.race)
+    if (data.summon_mode !== undefined) form.set('summon_mode', data.summon_mode)
+    if (data.abilities !== undefined) form.set('abilities', data.abilities)
+    if (data.effects !== undefined) form.set('effects', data.effects)
     form.set('image', data.image)
     return pb.collection<CardRecord>('cards').update(id, form)
   }
@@ -72,6 +88,13 @@ export async function updateCardDetails(id: string, data: UpdateCardInput): Prom
   if (data.attack !== undefined) payload.attack = data.attack
   if (data.defense !== undefined) payload.defense = data.defense
   if (data.description !== undefined) payload.description = data.description
+  if (data.cost !== undefined) payload.cost = data.cost
+  if (data.card_archetype !== undefined) payload.card_archetype = data.card_archetype
+  if (data.magic_school !== undefined) payload.magic_school = data.magic_school
+  if (data.race !== undefined) payload.race = data.race
+  if (data.summon_mode !== undefined) payload.summon_mode = data.summon_mode
+  if (data.abilities !== undefined) payload.abilities = data.abilities
+  if (data.effects !== undefined) payload.effects = data.effects
   return pb.collection<CardRecord>('cards').update(id, payload)
 }
 

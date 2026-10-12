@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   ArrowLeft,
-  Check,
   Crown,
+  Eye,
   Gem,
   LoaderCircle,
   Minus,
@@ -14,12 +14,14 @@ import {
 } from 'lucide-react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { CardVisual } from '@/components/CardVisual'
+import { CardZoomHud } from '@/components/CardZoomHud'
+import { InvocationCostDisplay } from '@/components/InvocationCostDisplay'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useToast } from '@/hooks/use-toast'
-import { getDeck, saveDeck } from '@/services/decks'
 import { listCards } from '@/services/cards'
+import { getDeck, saveDeck } from '@/services/decks'
 import type { CardRecord, DeckItem } from '@/types/domain'
 
 export default function DeckEditorPage() {
@@ -34,6 +36,8 @@ export default function DeckEditorPage() {
   const [query, setQuery] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [zoomCard, setZoomCard] = useState<CardRecord | null>(null)
+
   useEffect(() => {
     Promise.all([getDeck(id), listCards()])
       .then(([deck, all]) => {
@@ -53,6 +57,7 @@ export default function DeckEditorPage() {
       })
       .finally(() => setLoading(false))
   }, [id])
+
   const map = useMemo(() => new Map(cards.map((card) => [card.id, card])), [cards])
   const total = items.reduce((sum, item) => sum + item.quantity, 0)
   const deckCards = items
@@ -61,11 +66,12 @@ export default function DeckEditorPage() {
   const filtered = cards.filter((card) =>
     card.name.toLocaleLowerCase('pt-BR').includes(query.toLocaleLowerCase('pt-BR')),
   )
+
   const setMainCharacter = (cardId: string) => {
     setMain(cardId)
     // Se a carta escolhida como personagem principal estava nas lendárias, remove dela
     if (cardId) {
-      setLegendaries((old) => old.filter((id) => id !== cardId))
+      setLegendaries((old) => old.filter((legendaryId) => legendaryId !== cardId))
     }
   }
 
@@ -93,12 +99,11 @@ export default function DeckEditorPage() {
 
     // Regra: Carta Mestre só pode existir UMA por baralho e ela É o personagem principal
     if (delta > 0 && cardClass === 'mestre') {
-      // "ao selecionar uma carta é classe mestre. já coloca automaticamente como personagem principal do deck"
       // Se já é o personagem principal atual:
       if (main === cardId) {
         toast({
-          title: 'Carta Mestre já selecionada',
-          description: `“${targetCard?.name}” já é o Personagem Principal deste baralho. Apenas 1 carta Mestre é permitida por baralho.`,
+          title: 'Carta Grau Mestre já selecionada',
+          description: `“${targetCard?.name}” já é o Personagem Principal deste baralho. Apenas 1 carta de Grau Mestre é permitida por baralho.`,
         })
         return
       }
@@ -110,8 +115,8 @@ export default function DeckEditorPage() {
       toast({
         title: 'Personagem Principal definido',
         description: prevHero
-          ? `“${targetCard?.name}” (Mestre) substituiu “${prevHero.name}” como Personagem Principal.`
-          : `“${targetCard?.name}” é classe Mestre e foi definida automaticamente como Personagem Principal.`,
+          ? `“${targetCard?.name}” (Grau Mestre) substituiu “${prevHero.name}” como Personagem Principal.`
+          : `“${targetCard?.name}” é de Grau Mestre e foi definida automaticamente como Personagem Principal.`,
       })
       return
     }
@@ -128,7 +133,7 @@ export default function DeckEditorPage() {
             toast({
               variant: 'destructive',
               title: 'Limite de cópias atingido',
-              description: `Cartas de classe Lenda só podem ter no máximo 1 cópia no baralho (“${targetCard?.name}”).`,
+              description: `Cartas de Grau Lenda só podem ter no máximo 1 cópia no baralho (“${targetCard?.name}”).`,
             })
             return old
           }
@@ -138,7 +143,7 @@ export default function DeckEditorPage() {
             toast({
               variant: 'destructive',
               title: 'Limite de cópias atingido',
-              description: `Cartas de classe Normal podem ter até 4 cópias no baralho (“${targetCard?.name}”).`,
+              description: `Cartas de Grau Normal podem ter até 4 cópias no baralho (“${targetCard?.name}”).`,
             })
             return old
           }
@@ -161,14 +166,14 @@ export default function DeckEditorPage() {
     if (cardClass !== 'lenda') {
       toast({
         variant: 'destructive',
-        title: 'Apenas cartas de classe Lenda',
-        description: `“${targetCard?.name || 'Esta carta'}” é de classe ${cardClass === 'mestre' ? 'Mestre' : 'Normal'}. Apenas cartas Lenda podem ser colocadas nas zonas Lenda.`,
+        title: 'Apenas cartas de Grau Lenda',
+        description: `“${targetCard?.name || 'Esta carta'}” é de Grau ${cardClass === 'mestre' ? 'Mestre' : 'Normal'}. Apenas cartas Lenda podem ser colocadas nas zonas Lenda.`,
       })
       return
     }
 
     setLegendaries((old) => {
-      if (old.includes(cardId)) return old.filter((id) => id !== cardId)
+      if (old.includes(cardId)) return old.filter((legendaryId) => legendaryId !== cardId)
       if (old.length >= 3) {
         toast({
           variant: 'destructive',
@@ -180,6 +185,7 @@ export default function DeckEditorPage() {
       return [...old, cardId]
     })
   }
+
   const save = async () => {
     if (!name.trim())
       return toast({ variant: 'destructive', title: 'Informe um nome para o baralho.' })
@@ -202,12 +208,14 @@ export default function DeckEditorPage() {
       setSaving(false)
     }
   }
+
   if (loading)
     return (
       <div className="grid min-h-[70vh] place-items-center">
         <LoaderCircle className="h-8 w-8 animate-spin text-primary" />
       </div>
     )
+
   return (
     <div className="mx-auto w-full max-w-[1580px] px-4 py-8 lg:px-8">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
@@ -253,7 +261,7 @@ export default function DeckEditorPage() {
       <div className="deck-editor-grid">
         <section className="arcane-panel overflow-hidden">
           <div className="border-b border-border p-4">
-            <h2 className="font-display text-lg font-semibold">Seu baralho</h2>
+            <h2 className="font-display text-lg font-semibold">Seu baralho ({total})</h2>
             <p className="text-sm text-muted-foreground">Ajuste livremente as quantidades.</p>
           </div>
           <div className="border-b border-border bg-primary/5 p-4">
@@ -276,18 +284,27 @@ export default function DeckEditorPage() {
             </div>
             {main && map.get(main) ? (
               <div className="mb-2 flex items-center gap-2.5 rounded-lg border border-primary/40 bg-background/60 p-2">
-                <CardVisual
-                  card={map.get(main)}
-                  className="w-10 shrink-0 rounded"
-                  showDetails={false}
-                />
-                <div className="min-w-0 flex-1">
+                <div
+                  className="cursor-pointer"
+                  onClick={() => setZoomCard(map.get(main) || null)}
+                  title="Ampliar personagem"
+                >
+                  <CardVisual
+                    card={map.get(main)}
+                    className="w-10 shrink-0 rounded"
+                    showDetails={false}
+                  />
+                </div>
+                <div
+                  className="min-w-0 flex-1 cursor-pointer"
+                  onClick={() => setZoomCard(map.get(main) || null)}
+                >
                   <p className="truncate text-xs font-semibold">{map.get(main)?.name}</p>
                   <p className="text-[10px] text-muted-foreground">
                     {map.get(main)?.card_class === 'mestre'
-                      ? '⭐ Classe Mestre'
+                      ? '⭐ Grau Mestre'
                       : map.get(main)?.card_class === 'lenda'
-                        ? '👑 Classe Lenda'
+                        ? '👑 Grau Lenda'
                         : 'Personagem'}
                   </p>
                 </div>
@@ -311,7 +328,7 @@ export default function DeckEditorPage() {
                 if (chosen?.card_class === 'mestre') {
                   toast({
                     title: 'Personagem Principal definido',
-                    description: `“${chosen.name}” (Mestre) é o Personagem Principal do baralho.`,
+                    description: `“${chosen.name}” (Grau Mestre) é o Personagem Principal do baralho.`,
                   })
                 }
               }}
@@ -322,9 +339,9 @@ export default function DeckEditorPage() {
                 <option key={card.id} value={card.id}>
                   {card.name}{' '}
                   {card.card_class === 'mestre'
-                    ? '⭐ (Mestre)'
+                    ? '⭐ (Grau Mestre)'
                     : card.card_class === 'lenda'
-                      ? '👑 (Lenda)'
+                      ? '👑 (Grau Lenda)'
                       : ''}
                 </option>
               ))}
@@ -353,7 +370,12 @@ export default function DeckEditorPage() {
                       <span className="grid h-5 w-5 place-items-center rounded-full bg-primary/20 font-display text-[10px] font-bold text-primary">
                         {index + 1}
                       </span>
-                      <span className="max-w-[140px] truncate">{card?.name || 'Carta'}</span>
+                      <span
+                        className="max-w-[140px] truncate cursor-pointer hover:underline"
+                        onClick={() => card && setZoomCard(card)}
+                      >
+                        {card?.name || 'Carta'}
+                      </span>
                       <button
                         type="button"
                         aria-label={`Remover ${card?.name || 'lendária'}`}
@@ -382,7 +404,7 @@ export default function DeckEditorPage() {
                 )
                 .map((card) => (
                   <option key={card.id} value={card.id}>
-                    {card.name} (Lenda)
+                    {card.name} (Grau Lenda)
                   </option>
                 ))}
             </select>
@@ -393,14 +415,52 @@ export default function DeckEditorPage() {
                 deckCards.map(({ card, quantity }) => (
                   <div
                     key={card.id}
-                    className="flex items-center gap-3 rounded-lg border border-border bg-background/35 p-2"
+                    className="flex items-center gap-3 rounded-lg border border-border bg-background/35 p-2 transition hover:bg-background/60"
                   >
-                    <CardVisual
-                      card={card}
-                      className="w-12 shrink-0 rounded-md"
-                      showDetails={false}
-                    />
-                    <div className="min-w-0 flex-1">
+                    {/* Botão MENOS no lado ESQUERDO da carta */}
+                    <button
+                      type="button"
+                      className="grid h-8 w-8 shrink-0 place-items-center rounded-md border border-border bg-background/80 text-muted-foreground hover:border-destructive/60 hover:bg-destructive/15 hover:text-destructive transition active:scale-95"
+                      onClick={() => adjust(card.id, -1)}
+                      title="Diminuir quantidade (retirar cópia)"
+                      aria-label={`Diminuir cópia de ${card.name}`}
+                    >
+                      <Minus className="h-4 w-4" />
+                    </button>
+
+                    {/* Arte da carta com badge de quantidade centralizado no topo */}
+                    <div
+                      className="relative shrink-0 cursor-pointer"
+                      onClick={() => setZoomCard(card)}
+                      title="Clique para inspecionar carta"
+                    >
+                      <CardVisual
+                        card={card}
+                        className="w-12 rounded-md shadow"
+                        showDetails={false}
+                      />
+                      {/* Quantidade centralizada no topo-centro da carta */}
+                      <span className="absolute -top-1.5 left-1/2 -translate-x-1/2 grid h-5 min-w-[20px] place-items-center rounded-full bg-amber-500 px-1 font-display text-[10px] font-bold text-black shadow-md border border-amber-300">
+                        {quantity}x
+                      </span>
+                    </div>
+
+                    {/* Botão MAIS no lado DIREITO da carta */}
+                    <button
+                      type="button"
+                      className="grid h-8 w-8 shrink-0 place-items-center rounded-md border border-border bg-background/80 text-muted-foreground hover:border-primary/60 hover:bg-primary/15 hover:text-primary transition active:scale-95"
+                      onClick={() => adjust(card.id, 1)}
+                      title="Aumentar quantidade (adicionar cópia)"
+                      aria-label={`Adicionar cópia de ${card.name}`}
+                    >
+                      <Plus className="h-4 w-4" />
+                    </button>
+
+                    {/* Informações da carta */}
+                    <div
+                      className="min-w-0 flex-1 cursor-pointer"
+                      onClick={() => setZoomCard(card)}
+                    >
                       <div className="flex items-center gap-1.5">
                         <p className="truncate text-sm font-semibold">{card.name}</p>
                         {card.card_class === 'lenda' && (
@@ -408,8 +468,13 @@ export default function DeckEditorPage() {
                             Lenda (máx 1)
                           </span>
                         )}
+                        {card.card_class === 'mestre' && (
+                          <span className="shrink-0 rounded border border-amber-500/40 bg-amber-500/20 px-1 text-[9px] font-bold text-amber-300 uppercase">
+                            Mestre
+                          </span>
+                        )}
                       </div>
-                      <p className="text-xs capitalize text-muted-foreground">
+                      <p className="text-xs capitalize text-muted-foreground truncate">
                         {card.card_type === 'guerreiro'
                           ? 'Personagem'
                           : card.card_type === 'arma' ||
@@ -419,38 +484,28 @@ export default function DeckEditorPage() {
                             : card.card_type === 'evento'
                               ? 'Magia'
                               : card.card_type}
+                        {card.card_archetype ? ` • ${card.card_archetype}` : ''}
                         {card.card_class === 'normal' || !card.card_class
-                          ? ' • Normal (até 4)'
+                          ? ' • Grau Normal (até 4)'
                           : ''}
                       </p>
                     </div>
+
+                    {/* Ações adicionais: Zoom e Lixeira para remover tudo */}
                     <div className="flex items-center gap-1">
-                      <div className="flex items-center rounded-md border border-border">
-                        <button
-                          type="button"
-                          className="p-1.5 hover:text-primary"
-                          onClick={() => adjust(card.id, -1)}
-                          title="Diminuir 1 cópia"
-                          aria-label={`Diminuir cópia de ${card.name}`}
-                        >
-                          <Minus className="h-3.5 w-3.5" />
-                        </button>
-                        <span className="w-6 text-center font-display text-sm">{quantity}</span>
-                        <button
-                          type="button"
-                          className="p-1.5 hover:text-primary"
-                          onClick={() => adjust(card.id, 1)}
-                          title="Adicionar 1 cópia"
-                          aria-label={`Adicionar cópia de ${card.name}`}
-                        >
-                          <Plus className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
                       <button
                         type="button"
-                        className="rounded-md border border-border p-1.5 text-muted-foreground hover:border-destructive/50 hover:bg-destructive/10 hover:text-destructive"
+                        className="rounded-md p-1.5 text-muted-foreground hover:text-amber-300"
+                        onClick={() => setZoomCard(card)}
+                        title="Ver HUD da carta"
+                      >
+                        <Eye className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        className="rounded-md border border-transparent p-1.5 text-muted-foreground hover:border-destructive/40 hover:bg-destructive/10 hover:text-destructive transition"
                         onClick={() => removeItem(card.id)}
-                        title="Remover todas as cópias desta carta"
+                        title="Remover carta do baralho"
                         aria-label={`Remover ${card.name} do baralho`}
                       >
                         <Trash2 className="h-3.5 w-3.5" />
@@ -460,18 +515,22 @@ export default function DeckEditorPage() {
                 ))
               ) : (
                 <div className="py-16 text-center text-sm text-muted-foreground">
-                  Clique nas cartas da coleção para adicioná-las.
+                  Clique nas cartas da coleção ao lado para adicioná-las.
                 </div>
               )}
             </div>
           </ScrollArea>
         </section>
+
+        {/* Seção da Coleção de Cartas */}
         <section className="arcane-panel overflow-hidden">
           <div className="border-b border-border p-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h2 className="font-display text-lg font-semibold">Coleção</h2>
-                <p className="text-sm text-muted-foreground">Clique em uma carta para adicionar.</p>
+                <p className="text-sm text-muted-foreground">
+                  Clique no card para adicionar ou use a lupa para inspecionar.
+                </p>
               </div>
               <div className="relative w-full sm:w-72">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -491,46 +550,79 @@ export default function DeckEditorPage() {
                 const cardClass = card.card_class || 'normal'
                 const isMain = main === card.id
                 return (
-                  <button
-                    key={card.id}
-                    onClick={() => adjust(card.id, 1)}
-                    className="group relative text-left"
-                  >
-                    <CardVisual card={card} />
+                  <div key={card.id} className="group relative text-left flex flex-col">
+                    <button
+                      type="button"
+                      onClick={() => adjust(card.id, 1)}
+                      className="relative block w-full text-left transition hover:scale-[1.02] focus:outline-none"
+                    >
+                      <CardVisual card={card} />
+                      {/* Custo no topo esquerdo se houver */}
+                      {card.cost && (
+                        <div className="absolute top-1 left-1 z-20 rounded bg-black/85 px-1 py-0.5 shadow border border-amber-500/40">
+                          <InvocationCostDisplay cost={card.cost} size="sm" />
+                        </div>
+                      )}
+                      {/* Badge do Personagem */}
+                      {isMain && (
+                        <span className="absolute left-1 bottom-1 z-20 flex items-center gap-1 rounded-full bg-amber-500/90 px-2 py-0.5 text-[10px] font-bold text-black shadow">
+                          <Crown className="h-3 w-3" />
+                          Personagem
+                        </span>
+                      )}
+                      {/* Quantidade no baralho centralizada no topo */}
+                      {count > 0 && (
+                        <span className="absolute top-1 right-1 z-20 grid h-6 min-w-[24px] place-items-center rounded-full bg-amber-400 px-1 font-display text-xs font-bold text-black shadow-lg border border-amber-200">
+                          {count}x
+                        </span>
+                      )}
+                    </button>
+
                     <div className="mt-2 flex items-center justify-between gap-1">
-                      <p className="truncate text-xs font-semibold" title={card.name}>
+                      <p className="truncate text-xs font-semibold flex-1" title={card.name}>
                         {card.name}
                       </p>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setZoomCard(card)
+                        }}
+                        className="rounded p-1 text-muted-foreground hover:bg-primary/10 hover:text-amber-300"
+                        title="Inspecionar carta"
+                      >
+                        <Eye className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+
+                    <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                      <span className="capitalize">{card.rarity}</span>
                       {cardClass === 'mestre' && (
-                        <span className="shrink-0 rounded border border-amber-500/40 bg-amber-500/20 px-1 text-[9px] font-bold text-amber-300 uppercase">
-                          Mestre
+                        <span className="rounded border border-amber-500/40 bg-amber-500/20 px-1 font-bold text-amber-300 uppercase">
+                          Grau Mestre
                         </span>
                       )}
                       {cardClass === 'lenda' && (
-                        <span className="shrink-0 rounded border border-purple-500/40 bg-purple-500/20 px-1 text-[9px] font-bold text-purple-300 uppercase">
-                          Lenda
+                        <span className="rounded border border-purple-500/40 bg-purple-500/20 px-1 font-bold text-purple-300 uppercase">
+                          Grau Lenda
                         </span>
                       )}
+                      {cardClass === 'normal' && <span>• Grau Normal</span>}
                     </div>
-                    {isMain && (
-                      <span className="absolute left-1 top-1 flex items-center gap-1 rounded-full bg-amber-500/90 px-2 py-0.5 text-[10px] font-bold text-black shadow">
-                        <Crown className="h-3 w-3" />
-                        Personagem
-                      </span>
-                    )}
-                    {count > 0 && (
-                      <span className="absolute right-1 top-1 grid h-7 w-7 place-items-center rounded-full bg-primary font-display text-xs font-bold text-primary-foreground shadow">
-                        <Check className="h-3 w-3" />
-                        {count}
-                      </span>
-                    )}
-                  </button>
+                  </div>
                 )
               })}
             </div>
           </ScrollArea>
         </section>
       </div>
+
+      {/* HUD de Zoom */}
+      <CardZoomHud
+        card={zoomCard}
+        open={Boolean(zoomCard)}
+        onOpenChange={(open) => !open && setZoomCard(null)}
+      />
     </div>
   )
 }

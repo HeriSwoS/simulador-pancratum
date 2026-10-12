@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-12T16:29:27.096Z",
+  "generatedAt": "2026-10-12T18:49:42.130Z",
   "collections": [
     {
       "name": "users",
@@ -144,6 +144,48 @@
           "required": false,
           "system": false,
           "selectValues": ["normal", "lenda", "mestre"]
+        },
+        {
+          "name": "cost",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "card_archetype",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "magic_school",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "race",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "summon_mode",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "abilities",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "effects",
+          "type": "text",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": [
@@ -289,6 +331,61 @@
         "CREATE INDEX idx_matches_owner ON matches (owner)",
         "CREATE INDEX idx_matches_guest ON matches (guest)",
         "CREATE INDEX idx_matches_status ON matches (status)"
+      ]
+    },
+    {
+      "name": "lore_pages",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && owner = @request.auth.id",
+        "view": "@request.auth.id != '' && owner = @request.auth.id",
+        "create": "@request.auth.id != '' && @request.body.owner = @request.auth.id",
+        "update": "@request.auth.id != '' && owner = @request.auth.id",
+        "delete": "@request.auth.id != '' && owner = @request.auth.id"
+      },
+      "fields": [
+        {
+          "name": "owner",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "title",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "content",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "order",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_lore_pages_owner_order ON lore_pages (owner, \"order\" ASC, created ASC)"
       ]
     }
   ]

@@ -17,9 +17,10 @@ import pb from '@/lib/pocketbase/client'
 import { cn } from '@/lib/utils'
 
 const links = [
-  { to: '/biblioteca', label: 'Biblioteca' },
-  { to: '/baralhos', label: 'Baralhos' },
-  { to: '/jogar', label: 'Jogar' },
+  { to: '/jogar', label: 'Partidas' },
+  { to: '/biblioteca', label: 'Coleção' },
+  { to: '/baralhos', label: 'Meus Decks' },
+  { to: '/historia', label: 'História' },
 ]
 
 function UserMenu() {

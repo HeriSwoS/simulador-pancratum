@@ -31,11 +31,19 @@ export type CardColor =
   | 'neutro'
   | 'dourado'
 
+export interface InvocationCost {
+  /** Número do ponto primástico (quadradinho com número), ex: 3 */
+  prismatic?: number
+  /** Pontos de essência (quadradinhos coloridos), ex: ['azul', 'azul', 'azul'] */
+  essence?: string[]
+}
+
 export interface CardRecord extends RecordModel {
   owner: string
   name: string
   card_type: CardType
   rarity: CardRarity
+  /** Grau da carta (antigo card_class: normal, lenda, mestre) */
   card_class?: CardClass
   color?: string
   attack: number
@@ -43,6 +51,23 @@ export interface CardRecord extends RecordModel {
   description: string
   image: string
   is_public: boolean
+  /** Novos campos PANCRATUM */
+  cost?: InvocationCost
+  card_archetype?: string // Classe: Guerreiro, Mago, Fera, Veículo...
+  magic_school?: string // Escola Mágica: Abjuração, Conjuração, Encantamento...
+  race?: string // Raça: Dragão, Humano, Peixe...
+  summon_mode?: string // Modo de Invocação: Sinc, Fusion, Dimension...
+  abilities?: string // Texto de Habilidades
+  effects?: string // Texto de Efeitos
+}
+
+export interface LorePageRecord extends RecordModel {
+  owner: string
+  title: string
+  content?: string
+  order?: number
+  created: string
+  updated: string
 }
 
 export interface DeckItem {

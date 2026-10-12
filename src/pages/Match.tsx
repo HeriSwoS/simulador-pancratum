@@ -34,6 +34,7 @@ import {
 } from 'lucide-react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { CardBack, CardVisual, normalizeCardColor } from '@/components/CardVisual'
+import { CardZoomHud } from '@/components/CardZoomHud'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -624,23 +625,12 @@ export default function MatchPage() {
           onMenu={openMenu}
         />
       </div>
-      <Dialog open={Boolean(preview)} onOpenChange={(open) => !open && setPreview(null)}>
-        <DialogContent className="max-w-md border-primary/25 bg-[#17100b]">
-          <DialogHeader>
-            <DialogTitle>
-              {preview ? cardMap.get(preview.cardId)?.name || 'Carta' : 'Carta'}
-            </DialogTitle>
-            <DialogDescription>Visualização ampliada da carta.</DialogDescription>
-          </DialogHeader>
-          {preview && (
-            <CardVisual
-              card={cardMap.get(preview.cardId)}
-              faceUp={preview.faceUp}
-              className="mx-auto w-full max-w-[320px]"
-            />
-          )}
-        </DialogContent>
-      </Dialog>
+      <CardZoomHud
+        card={preview ? cardMap.get(preview.cardId) : null}
+        open={Boolean(preview)}
+        onOpenChange={(open) => !open && setPreview(null)}
+        faceUp={preview ? preview.faceUp : true}
+      />
       <PileDialog
         pile={pile}
         state={state}

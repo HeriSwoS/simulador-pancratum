@@ -1,7 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Edit3, ImagePlus, LoaderCircle, Maximize2, Search, Trash2, Upload } from 'lucide-react'
+import {
+  Edit3,
+  Eye,
+  ImagePlus,
+  LoaderCircle,
+  Maximize2,
+  Search,
+  Trash2,
+  Upload,
+} from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import { CardVisual, normalizeCardColor } from '@/components/CardVisual'
+import { CardZoomHud } from '@/components/CardZoomHud'
+import { CreatableCombobox } from '@/components/CreatableCombobox'
+import { InvocationCostDisplay } from '@/components/InvocationCostDisplay'
+import { InvocationCostEditor } from '@/components/InvocationCostEditor'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -19,7 +32,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Textarea } from '@/components/ui/textarea'
 import { useToast } from '@/hooks/use-toast'
+import pb from '@/lib/pocketbase/client'
 import { cn } from '@/lib/utils'
 import {
   deleteCard,
@@ -29,8 +44,7 @@ import {
   updateCardDetails,
   type UpdateCardInput,
 } from '@/services/cards'
-import type { CardClass, CardRarity, CardRecord, CardType } from '@/types/domain'
-import pb from '@/lib/pocketbase/client'
+import type { CardClass, CardRarity, CardRecord, CardType, InvocationCost } from '@/types/domain'
 
 const typeOptions: { value: CardType | 'todos'; label: string }[] = [
   { value: 'todos', label: 'Todos os tipos' },
@@ -84,7 +98,6 @@ const colorDisplayNames: Record<string, string> = {
   branco: 'Branco',
   preto: 'Preto',
   cinza: 'Cinza',
-  // Legados
   dourado: 'Amarelo',
   neutro: 'Cinza',
 }
@@ -95,13 +108,18 @@ const typeDisplayNames: Record<string, string> = {
   magia: 'Magia',
   armadilha: 'Armadilha',
   equipamento: 'Equipamento',
-  // Legados
   guerreiro: 'Personagem',
   arma: 'Equipamento',
   armadura: 'Equipamento',
   evento: 'Magia',
   reliquia: 'Equipamento',
 }
+
+// Opções iniciais padrão para os novos campos editáveis
+export const INITIAL_ARCHETYPES = ['Guerreiro', 'Mago', 'Fera', 'Veículo']
+export const INITIAL_MAGIC_SCHOOLS = ['Abjuração', 'Conjuração', 'Encantamento']
+export const INITIAL_RACES = ['Dragão', 'Humano', 'Peixe']
+export const INITIAL_SUMMON_MODES = ['Sinc', 'Fusion', 'Dimension']
 
 export default function LibraryPage() {
   const [cards, setCards] = useState<CardRecord[]>([])
@@ -112,10 +130,12 @@ export default function LibraryPage() {
   const [rarity, setRarity] = useState<CardRarity | 'todas'>('todas')
   const [cardClassFilter, setCardClassFilter] = useState<CardClass | 'todas'>('todas')
   const [selected, setSelected] = useState<CardRecord | null>(null)
+  const [zoomCard, setZoomCard] = useState<CardRecord | null>(null)
   const [backOpen, setBackOpen] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
   const [params, setParams] = useSearchParams()
+
   const load = async () => {
     setLoading(true)
     try {
@@ -130,15 +150,51 @@ export default function LibraryPage() {
       setLoading(false)
     }
   }
+
   useEffect(() => {
     void load()
   }, [])
+
   useEffect(() => {
     if (params.get('verso') === '1') {
       setBackOpen(true)
       setParams({}, { replace: true })
     }
   }, [params, setParams])
+
+  // Opções dinâmicas unindo as iniciais aos valores já salvos nas cartas
+  const dynamicArchetypes = useMemo(() => {
+    const set = new Set(INITIAL_ARCHETYPES)
+    cards.forEach((c) => {
+      if (c.card_archetype?.trim()) set.add(c.card_archetype.trim())
+    })
+    return Array.from(set)
+  }, [cards])
+
+  const dynamicSchools = useMemo(() => {
+    const set = new Set(INITIAL_MAGIC_SCHOOLS)
+    cards.forEach((c) => {
+      if (c.magic_school?.trim()) set.add(c.magic_school.trim())
+    })
+    return Array.from(set)
+  }, [cards])
+
+  const dynamicRaces = useMemo(() => {
+    const set = new Set(INITIAL_RACES)
+    cards.forEach((c) => {
+      if (c.race?.trim()) set.add(c.race.trim())
+    })
+    return Array.from(set)
+  }, [cards])
+
+  const dynamicSummonModes = useMemo(() => {
+    const set = new Set(INITIAL_SUMMON_MODES)
+    cards.forEach((c) => {
+      if (c.summon_mode?.trim()) set.add(c.summon_mode.trim())
+    })
+    return Array.from(set)
+  }, [cards])
+
   const filtered = useMemo(
     () =>
       cards.filter((card) => {
@@ -155,6 +211,7 @@ export default function LibraryPage() {
       }),
     [cards, query, type, rarity, cardClassFilter],
   )
+
   const upload = async (files: FileList | null) => {
     if (!files?.length) return
     const valid = Array.from(files).filter((f) =>
@@ -186,6 +243,7 @@ export default function LibraryPage() {
       if (fileRef.current) fileRef.current.value = ''
     }
   }
+
   const remove = async (card: CardRecord) => {
     if (card.owner && card.owner !== pb.authStore.record?.id) return
     if (!window.confirm(`Excluir “${card.name}” da biblioteca?`)) return
@@ -202,6 +260,7 @@ export default function LibraryPage() {
       })
     }
   }
+
   const saveMeta = async (card: CardRecord, patch: UpdateCardInput) => {
     try {
       const updated = await updateCardDetails(card.id, patch)
@@ -217,6 +276,7 @@ export default function LibraryPage() {
       throw error
     }
   }
+
   return (
     <div className="page-shell">
       <div className="page-heading page-heading--row">
@@ -252,6 +312,7 @@ export default function LibraryPage() {
           </Button>
         </div>
       </div>
+
       <div className="arcane-panel mb-8 grid gap-3 p-4 md:grid-cols-[1fr_180px_180px_180px]">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -294,13 +355,14 @@ export default function LibraryPage() {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="todas">Todas as classes</SelectItem>
-            <SelectItem value="normal">Classe: Normal</SelectItem>
-            <SelectItem value="lenda">Classe: Lenda</SelectItem>
-            <SelectItem value="mestre">Classe: Mestre</SelectItem>
+            <SelectItem value="todas">Todos os graus</SelectItem>
+            <SelectItem value="normal">Grau: Normal</SelectItem>
+            <SelectItem value="lenda">Grau: Lenda</SelectItem>
+            <SelectItem value="mestre">Grau: Mestre</SelectItem>
           </SelectContent>
         </Select>
       </div>
+
       {loading ? (
         <div className="grid min-h-80 place-items-center">
           <LoaderCircle className="h-8 w-8 animate-spin text-primary" />
@@ -312,17 +374,27 @@ export default function LibraryPage() {
             const displayType = typeDisplayNames[card.card_type] || card.card_type
             const displayColor = card.color ? colorDisplayNames[card.color] || card.color : null
             const cardClass = card.card_class || 'normal'
-            const displayClass = classDisplayNames[cardClass]
+            const displayGrau = classDisplayNames[cardClass]
             return (
               <div
                 key={card.id}
                 className="group relative flex flex-col justify-between rounded-xl border border-primary/15 bg-card/40 p-2.5 transition duration-200 hover:-translate-y-1 hover:border-primary/40 hover:bg-card/70 hover:shadow-lg"
               >
-                <div className="cursor-pointer" onClick={() => setSelected(card)}>
+                <div
+                  className="relative cursor-pointer"
+                  onClick={() => setZoomCard(card)}
+                  title="Clique para inspecionar com HUD"
+                >
                   <CardVisual card={card} />
+                  {/* Badge de custo de invocação se preenchido */}
+                  {card.cost && (
+                    <div className="absolute top-1.5 left-1.5 z-20 rounded bg-black/80 px-1.5 py-0.5 backdrop-blur-sm shadow border border-amber-500/40">
+                      <InvocationCostDisplay cost={card.cost} size="sm" />
+                    </div>
+                  )}
                 </div>
                 <div className="mt-2.5 flex items-start justify-between gap-2">
-                  <div className="min-w-0 flex-1 cursor-pointer" onClick={() => setSelected(card)}>
+                  <div className="min-w-0 flex-1 cursor-pointer" onClick={() => setZoomCard(card)}>
                     <div className="flex items-center gap-1.5">
                       <h3
                         className="truncate font-display text-sm font-semibold text-foreground/95"
@@ -330,26 +402,42 @@ export default function LibraryPage() {
                       >
                         {card.name}
                       </h3>
-                      {cardClass !== 'normal' && (
-                        <span
-                          className={cn(
-                            'shrink-0 rounded px-1 py-0.2 text-[9px] font-bold uppercase tracking-wide',
-                            cardClass === 'mestre'
-                              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
-                              : 'bg-purple-500/20 text-purple-300 border border-purple-500/40',
-                          )}
-                        >
-                          {displayClass}
-                        </span>
-                      )}
+                      <span
+                        className={cn(
+                          'shrink-0 rounded px-1 py-0.2 text-[9px] font-bold uppercase tracking-wide',
+                          cardClass === 'mestre'
+                            ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                            : cardClass === 'lenda'
+                              ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40'
+                              : 'bg-primary/10 text-muted-foreground border border-primary/20',
+                        )}
+                      >
+                        {displayGrau}
+                      </span>
                     </div>
-                    <p className="mt-0.5 text-xs text-muted-foreground">
+                    <p className="mt-0.5 text-xs text-muted-foreground truncate">
                       {displayType} • <span className="capitalize">{card.rarity}</span>
-                      {cardClass === 'normal' && ` • Normal`}
-                      {displayColor && ` • ${displayColor}`}
+                      {card.card_archetype ? ` • ${card.card_archetype}` : ''}
+                      {displayColor ? ` • ${displayColor}` : ''}
                     </p>
+                    {(card.race || card.magic_school || card.summon_mode) && (
+                      <p className="mt-0.5 text-[10px] text-muted-foreground/80 truncate">
+                        {[card.race, card.magic_school, card.summon_mode]
+                          .filter(Boolean)
+                          .join(' • ')}
+                      </p>
+                    )}
                   </div>
                   <div className="flex shrink-0 items-center gap-1">
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-7 w-7 text-amber-400/90 hover:bg-amber-500/15 hover:text-amber-300"
+                      onClick={() => setZoomCard(card)}
+                      title="Ver HUD detalhado"
+                    >
+                      <Eye className="h-3.5 w-3.5" />
+                    </Button>
                     {isOwner && (
                       <Button
                         size="icon"
@@ -378,15 +466,6 @@ export default function LibraryPage() {
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     )}
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                      onClick={() => setSelected(card)}
-                      title="Ver detalhes"
-                    >
-                      <Maximize2 className="h-3.5 w-3.5" />
-                    </Button>
                   </div>
                 </div>
               </div>
@@ -400,12 +479,27 @@ export default function LibraryPage() {
           <p>Ajuste os filtros ou importe suas primeiras artes.</p>
         </div>
       )}
+
+      {/* Editor Modal da Carta */}
       <CardDetails
         card={selected}
+        archetypes={dynamicArchetypes}
+        schools={dynamicSchools}
+        races={dynamicRaces}
+        summonModes={dynamicSummonModes}
         onClose={() => setSelected(null)}
         onDelete={remove}
         onSave={saveMeta}
       />
+
+      {/* HUD de Zoom */}
+      <CardZoomHud
+        card={zoomCard}
+        open={Boolean(zoomCard)}
+        onOpenChange={(open) => !open && setZoomCard(null)}
+      />
+
+      {/* Verso da carta */}
       <BackDialog open={backOpen} onOpenChange={setBackOpen} />
     </div>
   )
@@ -413,11 +507,19 @@ export default function LibraryPage() {
 
 function CardDetails({
   card,
+  archetypes,
+  schools,
+  races,
+  summonModes,
   onClose,
   onDelete,
   onSave,
 }: {
   card: CardRecord | null
+  archetypes: string[]
+  schools: string[]
+  races: string[]
+  summonModes: string[]
   onClose: () => void
   onDelete: (card: CardRecord) => void
   onSave: (card: CardRecord, patch: UpdateCardInput) => Promise<void>
@@ -427,6 +529,14 @@ function CardDetails({
   const [rarity, setRarity] = useState<CardRarity>('comum')
   const [cardClass, setCardClass] = useState<CardClass>('normal')
   const [color, setColor] = useState('azul')
+  const [cost, setCost] = useState<InvocationCost>({ prismatic: 0, essence: [] })
+  const [cardArchetype, setCardArchetype] = useState('')
+  const [magicSchool, setMagicSchool] = useState('')
+  const [race, setRace] = useState('')
+  const [summonMode, setSummonMode] = useState('')
+  const [abilities, setAbilities] = useState('')
+  const [effects, setEffects] = useState('')
+  const [description, setDescription] = useState('')
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string>('')
   const [saving, setSaving] = useState(false)
@@ -444,6 +554,14 @@ function CardDetails({
       setRarity(card.rarity)
       setCardClass(card.card_class || 'normal')
       setColor(normalizeCardColor(card.color) || 'azul')
+      setCost(card.cost || { prismatic: 0, essence: [] })
+      setCardArchetype(card.card_archetype || '')
+      setMagicSchool(card.magic_school || '')
+      setRace(card.race || '')
+      setSummonMode(card.summon_mode || '')
+      setAbilities(card.abilities || '')
+      setEffects(card.effects || '')
+      setDescription(card.description || '')
       setImageFile(null)
       setImagePreview('')
     }
@@ -467,6 +585,14 @@ function CardDetails({
         rarity,
         card_class: cardClass,
         color,
+        cost,
+        card_archetype: cardArchetype,
+        magic_school: magicSchool,
+        race,
+        summon_mode: summonMode,
+        abilities,
+        effects,
+        description,
         ...(imageFile ? { image: imageFile } : {}),
       })
       setImageFile(null)
@@ -485,22 +611,49 @@ function CardDetails({
       rarity,
       card_class: cardClass,
       color,
+      cost,
+      card_archetype: cardArchetype,
+      magic_school: magicSchool,
+      race,
+      summon_mode: summonMode,
+      abilities,
+      effects,
+      description,
     }
-  }, [card, name, type, rarity, cardClass, color])
+  }, [
+    card,
+    name,
+    type,
+    rarity,
+    cardClass,
+    color,
+    cost,
+    cardArchetype,
+    magicSchool,
+    race,
+    summonMode,
+    abilities,
+    effects,
+    description,
+  ])
 
   return (
     <Dialog open={Boolean(card)} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
+      <DialogContent className="max-h-[92vh] max-w-4xl overflow-y-auto border-primary/30 bg-[#16100b]">
         <DialogHeader>
-          <DialogTitle>Editar carta</DialogTitle>
+          <DialogTitle className="font-display text-xl font-bold text-amber-300">
+            Editar carta
+          </DialogTitle>
           <DialogDescription>
-            Edite a imagem da frente, nome, classe (Normal, Lenda, Mestre), tipo, raridade e cor.
+            Edite os atributos, Grau (Normal/Lenda/Mestre), nova Classe, Custo de Invocação, Raça,
+            Escola Mágica, Modo de Invocação, Habilidades e Efeitos.
           </DialogDescription>
         </DialogHeader>
         {card && previewCard && (
-          <div className="grid gap-7 sm:grid-cols-[240px_1fr]">
+          <div className="grid gap-7 sm:grid-cols-[250px_1fr]">
+            {/* Coluna da arte */}
             <div className="flex flex-col items-center gap-3">
-              <div className="relative w-full max-w-[240px]">
+              <div className="relative w-full max-w-[250px]">
                 {imagePreview ? (
                   (() => {
                     const normPreviewColor = normalizeCardColor(color)
@@ -510,7 +663,7 @@ function CardDetails({
                           'tcg-card group/card',
                           `rarity-${rarity}`,
                           normPreviewColor && `card-color-${normPreviewColor}`,
-                          'mx-auto w-full max-w-[240px]',
+                          'mx-auto w-full max-w-[250px]',
                         )}
                         title={name}
                       >
@@ -529,7 +682,7 @@ function CardDetails({
                     )
                   })()
                 ) : (
-                  <CardVisual card={previewCard} className="mx-auto w-full max-w-[240px]" />
+                  <CardVisual card={previewCard} className="mx-auto w-full max-w-[250px]" />
                 )}
               </div>
 
@@ -546,7 +699,7 @@ function CardDetails({
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="w-full max-w-[240px]"
+                    className="w-full max-w-[250px]"
                     onClick={() => fileInputRef.current?.click()}
                   >
                     <Upload className="mr-2 h-4 w-4" />
@@ -556,18 +709,19 @@ function CardDetails({
                   </Button>
                   {imageFile && (
                     <p className="text-center text-xs text-primary font-medium">
-                      Nova imagem selecionada: {imageFile.name}
+                      Nova imagem: {imageFile.name}
                     </p>
                   )}
                 </>
               )}
             </div>
 
+            {/* Coluna de formulário */}
             <div className="space-y-4">
               <div>
                 <Label>Nome da carta</Label>
                 <Input
-                  className="mt-2"
+                  className="mt-1"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   disabled={!editable}
@@ -575,21 +729,22 @@ function CardDetails({
                 />
               </div>
 
+              {/* Grau da carta (antigo card_class) */}
               <div>
-                <Label>Classe da carta</Label>
+                <Label className="text-primary font-semibold">Grau da carta</Label>
                 <Select
                   value={cardClass}
                   onValueChange={(v) => setCardClass(v as CardClass)}
                   disabled={!editable}
                 >
-                  <SelectTrigger className="mt-2">
+                  <SelectTrigger className="mt-1">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     {classOptions.map((option) => (
                       <SelectItem key={option.value} value={option.value}>
                         <div className="flex flex-col">
-                          <span className="font-medium">{option.label}</span>
+                          <span className="font-medium">Grau: {option.label}</span>
                           <span className="text-[11px] text-muted-foreground">{option.desc}</span>
                         </div>
                       </SelectItem>
@@ -602,7 +757,81 @@ function CardDetails({
                 </p>
               </div>
 
+              {/* Editor de Custo de Invocação */}
+              <InvocationCostEditor value={cost} onChange={setCost} disabled={!editable} />
+
+              {/* Novos campos dinâmicos: Classe e Escola Mágica */}
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div>
+                  <Label>Classe (Arquétipo)</Label>
+                  <div className="mt-1">
+                    <CreatableCombobox
+                      value={cardArchetype}
+                      onChange={setCardArchetype}
+                      options={archetypes}
+                      placeholder="Guerreiro, Mago, Fera, Veículo..."
+                      disabled={!editable}
+                    />
+                  </div>
+                  <p className="mt-1 text-[10px] text-muted-foreground">
+                    Ex: Guerreiro, Mago, Fera, Veículo. Digite para adicionar mais.
+                  </p>
+                </div>
+
+                <div>
+                  <Label>Escola Mágica</Label>
+                  <div className="mt-1">
+                    <CreatableCombobox
+                      value={magicSchool}
+                      onChange={setMagicSchool}
+                      options={schools}
+                      placeholder="Abjuração, Conjuração..."
+                      disabled={!editable}
+                    />
+                  </div>
+                  <p className="mt-1 text-[10px] text-muted-foreground">
+                    Ex: Abjuração, Conjuração, Encantamento.
+                  </p>
+                </div>
+              </div>
+
+              {/* Novos campos dinâmicos: Raça e Modo de Invocação */}
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div>
+                  <Label>Raça</Label>
+                  <div className="mt-1">
+                    <CreatableCombobox
+                      value={race}
+                      onChange={setRace}
+                      options={races}
+                      placeholder="Dragão, Humano, Peixe..."
+                      disabled={!editable}
+                    />
+                  </div>
+                  <p className="mt-1 text-[10px] text-muted-foreground">
+                    Ex: Dragão, Humano, Peixe. Digite para adicionar mais.
+                  </p>
+                </div>
+
+                <div>
+                  <Label>Modo de Invocação</Label>
+                  <div className="mt-1">
+                    <CreatableCombobox
+                      value={summonMode}
+                      onChange={setSummonMode}
+                      options={summonModes}
+                      placeholder="Sinc, Fusion, Dimension..."
+                      disabled={!editable}
+                    />
+                  </div>
+                  <p className="mt-1 text-[10px] text-muted-foreground">
+                    Ex: Sinc, Fusion, Dimension.
+                  </p>
+                </div>
+              </div>
+
+              {/* Tipo, Raridade e Cor */}
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <div>
                   <Label>Tipo</Label>
                   <Select
@@ -610,7 +839,7 @@ function CardDetails({
                     onValueChange={(v) => setType(v as CardType)}
                     disabled={!editable}
                   >
-                    <SelectTrigger className="mt-2">
+                    <SelectTrigger className="mt-1">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -630,7 +859,7 @@ function CardDetails({
                     onValueChange={(v) => setRarity(v as CardRarity)}
                     disabled={!editable}
                   >
-                    <SelectTrigger className="mt-2">
+                    <SelectTrigger className="mt-1">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -642,41 +871,68 @@ function CardDetails({
                     </SelectContent>
                   </Select>
                 </div>
-              </div>
 
-              <div>
-                <Label>Cor da carta</Label>
-                <Select value={color} onValueChange={(v) => setColor(v)} disabled={!editable}>
-                  <SelectTrigger className="mt-2">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {colorOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        <div className="flex items-center gap-2">
-                          <span
-                            className="inline-block h-3 w-3 rounded-full border border-white/20"
-                            style={{ backgroundColor: option.colorHex }}
-                          />
-                          <span>{option.label}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="mt-1 text-[11px] text-muted-foreground">
-                  A cor aplica o destaque colorido na moldura e detalhe da carta.
-                </p>
-              </div>
-
-              {card.description && (
                 <div>
-                  <Label className="text-xs text-muted-foreground">Descrição</Label>
-                  <p className="mt-1 rounded-lg bg-muted/40 p-3 text-sm text-muted-foreground">
-                    {card.description}
-                  </p>
+                  <Label>Cor da carta</Label>
+                  <Select value={color} onValueChange={(v) => setColor(v)} disabled={!editable}>
+                    <SelectTrigger className="mt-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {colorOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          <div className="flex items-center gap-2">
+                            <span
+                              className="inline-block h-3 w-3 rounded-full border border-white/20"
+                              style={{ backgroundColor: option.colorHex }}
+                            />
+                            <span>{option.label}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
-              )}
+              </div>
+
+              {/* Texto de Habilidades */}
+              <div>
+                <Label>Texto de Habilidades</Label>
+                <Textarea
+                  className="mt-1 text-xs"
+                  rows={2}
+                  value={abilities}
+                  onChange={(e) => setAbilities(e.target.value)}
+                  disabled={!editable}
+                  placeholder="Habilidades ativas ou passivas da carta..."
+                />
+              </div>
+
+              {/* Texto de Efeitos */}
+              <div>
+                <Label>Texto de Efeitos</Label>
+                <Textarea
+                  className="mt-1 text-xs"
+                  rows={2}
+                  value={effects}
+                  onChange={(e) => setEffects(e.target.value)}
+                  disabled={!editable}
+                  placeholder="Efeitos de invocação, disparo, gatilho..."
+                />
+              </div>
+
+              {/* Descrição / Lore livre */}
+              <div>
+                <Label>Descrição adicional / Lore</Label>
+                <Textarea
+                  className="mt-1 text-xs"
+                  rows={2}
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  disabled={!editable}
+                  placeholder="Texto descritivo ou de história..."
+                />
+              </div>
 
               <div className="flex flex-wrap gap-2 pt-2">
                 <Button
