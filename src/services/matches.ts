@@ -1,15 +1,23 @@
 import pb from '@/lib/pocketbase/client'
 import type { DeckRecord, MatchRecord, MatchSnapshot } from '@/types/domain'
 
-export async function createMatch(deck: DeckRecord, state: MatchSnapshot): Promise<MatchRecord> {
+export async function createMatch(
+  deck1: DeckRecord,
+  state: MatchSnapshot,
+  deck2?: DeckRecord,
+): Promise<MatchRecord> {
   const owner = pb.authStore.record?.id
   if (!owner) throw new Error('Entre na sua conta para iniciar uma partida.')
+  const matchName =
+    deck2 && deck2.id !== deck1.id
+      ? `Treino — ${deck1.name} vs ${deck2.name}`
+      : `Treino — ${deck1.name}`
   return pb.collection<MatchRecord>('matches').create({
     owner,
-    name: `Treino — ${deck.name}`,
+    name: matchName,
     status: 'local',
     practice: true,
-    deck: deck.id,
+    deck: deck1.id,
     state,
   })
 }

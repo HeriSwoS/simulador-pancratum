@@ -241,14 +241,22 @@
   .preview-zone.equipment {
     color: #d5b737;
   }
-  .preview-left,
+  .preview-zone.graveyard {
+    color: #70bd4e;
+  }
+  .preview-zone.deck {
+    color: #c9a227;
+  }
+  .preview-left {
+    justify-content: space-between;
+  }
+  .preview-left .preview-zone {
+    height: 31%;
+  }
   .preview-right {
     justify-content: space-between;
   }
   .preview-right .preview-zone {
-    height: 23%;
-  }
-  .preview-left .preview-zone {
     height: 31%;
   }
   .page-shell {
@@ -599,14 +607,27 @@
     padding: 5px 12px;
     overflow: hidden;
   }
-  .battle-board {
+  .board-container {
     position: relative;
     margin: auto;
+    display: flex;
+    align-items: stretch;
+    justify-content: center;
+    gap: 12px;
+    width: min(98vw, 1720px);
+  }
+  .board-container--opponent {
+    /* container do oponente mantém orientação coordenada com o tabuleiro */
+  }
+  .battle-board {
+    position: relative;
+    flex: 1;
+    min-width: 0;
     display: grid;
-    grid-template-columns: 12.6% 1fr 12.6% 12.6%;
+    /* Alinhamento reto: 1 coluna lendária (1fr), 5 zonas no centro (5.34fr com gaps), 1 coluna lateral (1fr) */
+    grid-template-columns: 1fr 5.34fr 1fr;
     gap: 0.8%;
-    width: min(96vw, 1650px);
-    aspect-ratio: 2.6/1;
+    aspect-ratio: 2.3/1;
     padding: 0.7%;
     border: 1px solid rgba(201, 162, 39, 0.22);
     border-radius: 12px;
@@ -628,13 +649,32 @@
   .battle-board--opponent {
     transform: rotate(180deg);
   }
-  /* MESMO TAMANHO em todas as zonas: as colunas estreitas ficam com a mesma
-     largura de uma zona do centro (1fr ≈ largura de uma zona das linhas de 5),
-     e todas recebem a mesma fatia de altura (flex: 1) — ataque, defesa,
-     equipamentos, principal, lendárias, recursos, cemitério, baralho e
-     banimento ficam idênticas */
-  .battle-board {
-    grid-template-columns: 1fr 5.34fr 1fr 1fr;
+  /* Painel externo de Recursos — fora do tabuleiro para manter ataque, defesa e equipamentos retos */
+  .board-external-panel {
+    display: flex;
+    flex-direction: column;
+    width: clamp(140px, 11vw, 200px);
+    flex-shrink: 0;
+    border-radius: 12px;
+    padding: 0.7%;
+    background: linear-gradient(135deg, rgba(38, 30, 27, 0.95), rgba(20, 15, 13, 0.95));
+    border: 1px solid rgba(112, 189, 78, 0.35);
+    box-shadow:
+      inset 0 0 30px rgba(0, 0, 0, 0.7),
+      0 8px 24px rgba(0, 0, 0, 0.4);
+  }
+  .board-external-panel--opponent {
+    transform: rotate(180deg);
+  }
+  .board-external-resource {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+  }
+  .board-external-resource .board-zone {
+    flex: 1;
+    width: 100%;
+    height: 100%;
   }
   .board-column,
   .board-center,
@@ -656,7 +696,7 @@
   }
   .board-row .board-zone,
   .board-column .board-zone,
-  .board-banish .board-zone {
+  .board-external-resource .board-zone {
     flex: 1;
   }
   .board-zone {
@@ -807,32 +847,29 @@
     outline: 2px solid #f0d77b;
     outline-offset: 2px;
   }
-  .board-banish {
-    display: flex;
-    flex-direction: column;
-  }
-  .board-banish .zone-label {
+  /* Estilo da zona de Recursos no painel externo */
+  .board-external-panel .zone-label {
     bottom: 3%;
-    left: 10%;
-    right: 10%;
+    left: 8%;
+    right: 8%;
   }
-  .board-banish .zone-watermark {
+  .board-external-panel .zone-watermark {
     width: 36%;
     height: 36%;
   }
-  .board-banish .board-zone::before {
-    inset: 10%;
+  .board-external-panel .board-zone::before {
+    inset: 6%;
   }
-  .board-banish .zone-count {
+  .board-external-panel .zone-count {
     top: 6px;
     right: 8px;
   }
-  /* Estilo leque para cartas na zona maior (Recursos na coluna externa) */
-  .board-card-wrap--fan {
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.45);
-  }
-  .board-card-wrap--fan:hover {
-    translate: -50% -54%;
+  /* Na zona de Recursos, as cartas mantêm proporção idêntica 63x88 às demais zonas, sem distorção */
+  .board-zone--resource .board-card-wrap {
+    height: clamp(60px, 28%, 95px);
+    width: auto;
+    aspect-ratio: 63 / 88;
+    max-width: none;
   }
   /* HUD de cores na zona de Recursos */
   .resource-color-hud {
@@ -931,9 +968,6 @@
     line-height: 1;
     text-shadow: 0 1px 2px #000;
   }
-  .board-banish {
-    position: relative;
-  }
   .zone-label--top {
     top: 3.5%;
     bottom: auto;
@@ -941,7 +975,7 @@
   .zone-res-count {
     position: absolute;
     z-index: 25;
-    bottom: 20%;
+    bottom: 18%;
     left: 3px;
     right: 3px;
     display: grid;
@@ -1259,11 +1293,15 @@
   .tabletop {
     min-width: 720px;
   }
-  .battle-board {
-    width: 700px;
+  .board-container {
+    width: 820px;
+    gap: 8px;
   }
-  .battle-board .board-banish {
-    display: none;
+  .battle-board {
+    width: 660px;
+  }
+  .board-external-panel {
+    width: 140px;
   }
   .zone-label {
     font-size: 5px;
@@ -1304,11 +1342,15 @@
   .board-viewport {
     padding-inline: 5px;
   }
-  .battle-board {
-    width: 670px;
+  .board-container {
+    width: 780px;
+    gap: 8px;
   }
-  .battle-board .board-banish {
-    display: none;
+  .battle-board {
+    width: 630px;
+  }
+  .board-external-panel {
+    width: 130px;
   }
   .hand-area {
     position: sticky;

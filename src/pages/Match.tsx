@@ -191,7 +191,7 @@ function createResetSnapshot(current: MatchSnapshot): MatchSnapshot {
       player: { deck: playerDeck, hand: [], zones: buildZones('player') },
       opponent: { deck: opponentDeck, hand: [], zones: buildZones('opponent') },
     },
-    playerLife: current.playerLife ?? { player: 0, opponent: 0 },
+    playerLife: current.playerLife ?? { player: 20, opponent: 20 },
     characterLife: current.characterLife ?? { player: 0, opponent: 0 },
     legendaryCards: current.legendaryCards ?? { player: [], opponent: [] },
     version: 3,
@@ -328,10 +328,14 @@ export default function MatchPage() {
       const list = draft.players[player].zones[zone]
       // Se não houver coordenadas explícitas (ex.: mover via clique na zona ou menu),
       // a carta fica perfeitamente centralizada em (50, 50).
-      // Se houver arrasto livre com coordenadas, limitamos o centro (42-58) para nunca transbordar a zona.
+      // Na zona de Recursos, o usuário pode mover livremente as cartas dentro dela (12% a 88%).
+      // Nas outras zonas menores, limitamos o centro (42-58) para evitar transbordamento.
       if (x === undefined || y === undefined) {
         card.x = 50
         card.y = 50
+      } else if (zone === 'resources') {
+        card.x = Math.max(12, Math.min(88, x))
+        card.y = Math.max(12, Math.min(88, y))
       } else {
         card.x = Math.max(42, Math.min(58, x))
         card.y = Math.max(42, Math.min(58, y))
@@ -406,8 +410,8 @@ export default function MatchPage() {
       rawY = 100 - rawY
     }
     // Snap magnético: se soltar em torno do centro (entre 35% e 65%),
-    // fixa exatamente em 50%, 50% para um alinhamento perfeito sem desvio acidental.
-    const snapThreshold = 15
+    // fixa exatamente em 50%, 50% para um alinhamento perfeito sem desvio acidental (exceto na zona de Recursos onde o movimento é livre).
+    const snapThreshold = zone === 'resources' ? 0 : 15
     const x = Math.abs(rawX - 50) <= snapThreshold ? 50 : rawX
     const y = Math.abs(rawY - 50) <= snapThreshold ? 50 : rawY
     moveToZone(locator, player, zone, x, y)
@@ -715,85 +719,94 @@ function Board(props: BoardProps) {
   const { player, state, cardMap, dragging, selected } = props
   return (
     <div className="board-viewport">
-      <div className={cn('battle-board', player === 'opponent' && 'battle-board--opponent')}>
-        <div className="board-column board-column--legendary">
-          {legendaryZones.map((zone) => (
-            <BoardZone
-              key={zone}
+      <div className={cn('board-container', player === 'opponent' && 'board-container--opponent')}>
+        <div className={cn('battle-board', player === 'opponent' && 'battle-board--opponent')}>
+          <div className="board-column board-column--legendary">
+            {legendaryZones.map((zone) => (
+              <BoardZone
+                key={zone}
+                player={player}
+                zone={zone}
+                kind="legendary"
+                state={state}
+                cardMap={cardMap}
+                dragging={dragging}
+                selected={selected}
+                {...cardHandlers(props)}
+              />
+            ))}
+          </div>
+          <div className="board-center">
+            {centerRows.map((row) => (
+              <div className="board-row" key={row.kind}>
+                {row.zones.map((zone) => (
+                  <BoardZone
+                    key={zone}
+                    player={player}
+                    zone={zone}
+                    kind={zone === 'main' ? 'main' : row.kind}
+                    state={state}
+                    cardMap={cardMap}
+                    dragging={dragging}
+                    selected={selected}
+                    widgets={
+                      zone === 'main' ? (
+                        <MatchWidgets
+                          playerLife={state.playerLife?.[player] ?? 0}
+                          characterLife={state.characterLife?.[player] ?? 0}
+                          onPlayerLife={(value) => props.onPlayerLife(player, value)}
+                          onCharacterLife={(value) => props.onCharacterLife(player, value)}
+                        />
+                      ) : undefined
+                    }
+                    {...cardHandlers(props)}
+                  />
+                ))}
+              </div>
+            ))}
+          </div>
+          <div className="board-column board-column--side">
+            {sideZones.map(({ id, kind }) => (
+              <BoardZone
+                key={id}
+                player={player}
+                zone={id}
+                kind={kind}
+                state={state}
+                cardMap={cardMap}
+                dragging={dragging}
+                selected={selected}
+                {...cardHandlers(props)}
+              />
+            ))}
+            <DeckZone
               player={player}
-              zone={zone}
-              kind="legendary"
+              count={state.players[player].deck.length}
+              shuffling={props.shuffling}
+              onClick={props.onDeckSelected}
+              onShuffle={() => props.onShuffle(player)}
+            />
+          </div>
+        </div>
+        <aside
+          className={cn(
+            'board-external-panel',
+            player === 'opponent' && 'board-external-panel--opponent',
+          )}
+        >
+          <div className="board-external-resource">
+            <BoardZone
+              player={player}
+              zone="resources"
+              kind="resource"
               state={state}
               cardMap={cardMap}
               dragging={dragging}
               selected={selected}
               {...cardHandlers(props)}
             />
-          ))}
-        </div>
-        <div className="board-center">
-          {centerRows.map((row) => (
-            <div className="board-row" key={row.kind}>
-              {row.zones.map((zone) => (
-                <BoardZone
-                  key={zone}
-                  player={player}
-                  zone={zone}
-                  kind={zone === 'main' ? 'main' : row.kind}
-                  state={state}
-                  cardMap={cardMap}
-                  dragging={dragging}
-                  selected={selected}
-                  widgets={
-                    zone === 'main' ? (
-                      <MatchWidgets
-                        playerLife={state.playerLife?.[player] ?? 0}
-                        characterLife={state.characterLife?.[player] ?? 0}
-                        onPlayerLife={(value) => props.onPlayerLife(player, value)}
-                        onCharacterLife={(value) => props.onCharacterLife(player, value)}
-                      />
-                    ) : undefined
-                  }
-                  {...cardHandlers(props)}
-                />
-              ))}
-            </div>
-          ))}
-        </div>
-        <div className="board-column board-column--side">
-          {sideZones.map(({ id, kind }) => (
-            <BoardZone
-              key={id}
-              player={player}
-              zone={id}
-              kind={kind}
-              state={state}
-              cardMap={cardMap}
-              dragging={dragging}
-              selected={selected}
-              {...cardHandlers(props)}
-            />
-          ))}
-          <DeckZone
-            player={player}
-            count={state.players[player].deck.length}
-            shuffling={props.shuffling}
-            onClick={props.onDeckSelected}
-            onShuffle={() => props.onShuffle(player)}
-          />
-        </div>
-        <div className="board-banish">
-          <BoardZone
-            player={player}
-            zone="resources"
-            kind="resource"
-            state={state}
-            cardMap={cardMap}
-            dragging={dragging}
-            selected={selected}
-            {...cardHandlers(props)}
-          />
-        </div>
+          </div>
+        </aside>
       </div>
     </div>
   )
@@ -889,10 +902,6 @@ function BoardZone({
     })
   }, [kind, instances, cardMap])
 
-  // Na zona de recursos (que agora é a zona maior na coluna externa), se houver múltiplas cartas,
-  // aplicamos o leque sobreposto com offset visível para permitir visualizar e clicar individualmente
-  const isFanZone = zone === 'resources'
-
   return (
     <div
       className={cn(
@@ -944,26 +953,8 @@ function BoardZone({
         </div>
       )}
       {instances.length > 0 && <span className="zone-count">{instances.length}</span>}
-      {instances.map((instance, index) => {
+      {instances.map((instance) => {
         const locator: Locator = { player, area: 'zone', zone, uid: instance.uid }
-
-        // Se for zona em leque (Recursos), calcula deslocamento e z-index proporcional
-        let fanOffsetStyle: CSSProperties | undefined
-        if (isFanZone && instances.length > 1) {
-          const count = instances.length
-          // Passo de deslocamento em % dentro da zona maior
-          const stepX = Math.min(22, 55 / Math.max(1, count - 1))
-          const stepY = Math.min(12, 30 / Math.max(1, count - 1))
-          const startX = 50 - ((count - 1) * stepX) / 2
-          const startY = 48 - ((count - 1) * stepY) / 2
-          const posX = startX + index * stepX
-          const posY = startY + index * stepY
-          fanOffsetStyle = {
-            left: `${posX}%`,
-            top: `${posY}%`,
-            zIndex: index + 5,
-          }
-        }
 
         return (
           <BoardCard
@@ -972,8 +963,6 @@ function BoardZone({
             card={cardMap.get(instance.cardId)}
             locator={locator}
             selected={selected?.uid === instance.uid}
-            overrideStyle={fanOffsetStyle}
-            isFan={isFanZone && instances.length > 1}
             onDragStart={onDragStart}
             onClick={onCardClick}
             onPreview={onPreview}
@@ -992,7 +981,6 @@ function BoardCard({
   locator,
   selected,
   overrideStyle,
-  isFan,
   onDragStart,
   onClick,
   onPreview,
@@ -1003,7 +991,6 @@ function BoardCard({
   locator: Locator
   selected: boolean
   overrideStyle?: CSSProperties
-  isFan?: boolean
   onDragStart: BoardProps['onDragStart']
   onClick: BoardProps['onCardClick']
   onPreview: BoardProps['onPreview']
@@ -1018,11 +1005,7 @@ function BoardCard({
   } as CSSProperties
   return (
     <div
-      className={cn(
-        'board-card-wrap',
-        isFan && 'board-card-wrap--fan',
-        selected && 'card-selected',
-      )}
+      className={cn('board-card-wrap', selected && 'card-selected')}
       style={style}
       draggable
       onDragStart={(e) => onDragStart(e, locator)}

@@ -1,5 +1,28 @@
 # Changelog — Simulador PANCRATUM
 
+## 0.0.12
+
+- **Seleção de dois baralhos ao criar partida**:
+  - Modal de preparação de partida no lobby (`/jogar`) atualizado para permitir a seleção independente do baralho do Jogador 1 (Você) e do baralho do Jogador 2 (Adversário).
+  - Ambos os lados nascem com suas respectivas cartas embaralhadas na pilha de Baralho, Personagem Principal posicionado na zona principal e cartas de classe Lenda pré-alocadas nas zonas LENDA 1–3 de cada jogador.
+- **Vida inicial do jogador começando em 20**:
+  - Partidas recém-criadas iniciam com vida do jogador em 20 (`playerLife: { player: 20, opponent: 20 }`), enquanto a vida do Personagem Principal mantém-se em 0.
+  - Snapshots legados continuam preservando integralmente suas vidas sem rebaixamento em `normalizeSnapshot`.
+- **Zona de Recursos externa ao tabuleiro**:
+  - A zona de Recursos foi retirada de dentro da grade `.battle-board` e movida para um painel externo próprio (`.board-external-panel`), restaurando o alinhamento reto e simétrico entre as 5 zonas de Ataque, 5 zonas de Defesa e Equipamentos.
+  - Layout responsivo ajustado para visualização em telas de 900px e 640px com rolagem horizontal consistente.
+- **Cartas na zona de Recursos sem distorção e com movimento livre**:
+  - Corrigido o dimensionamento das cartas na zona de Recursos, preservando estritamente a proporção oficial 63×88 de todas as zonas, sem estiramento ou distorção.
+  - Cartas podem ser arrastadas e soltas livremente em qualquer posição dentro da zona de Recursos, sem ficarem travadas no centro.
+  - O giro por clique (em pé ↔ deitada), o HUD de contagem de cores das cartas em pé e o contador de recursos continuam funcionando normalmente.
+- **Alinhamento do BoardPreview**:
+  - Prévia do tabuleiro atualizada com colunas balanceadas e zonas laterais alinhadas (Banimento, Cemitério e Baralho).
+
+## 0.0.11
+
+- **Remoção de cartas e cópias no Editor de Baralhos**:
+  - Possibilidade de remover cartas individuais ou diminuir cópias diretamente no DeckEditor.
+
 ## 0.0.10
 
 - **Nova classe de carta na edição (Normal, Lenda, Mestre)**:

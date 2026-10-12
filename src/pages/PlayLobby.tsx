@@ -52,8 +52,9 @@ function placedInstance(cardId: string, owner: PlayerKey): CardInstance {
   }
 }
 
-function makeSnapshot(deck: DeckRecord): MatchSnapshot {
-  const build = (owner: PlayerKey) =>
+function makeSnapshot(deckPlayer: DeckRecord, deckOpponent?: DeckRecord): MatchSnapshot {
+  const deck2 = deckOpponent || deckPlayer
+  const buildCards = (deck: DeckRecord, owner: PlayerKey) =>
     shuffled(
       deck.items.flatMap((item) => Array.from({ length: item.quantity }, () => item.cardId)),
     ).map<CardInstance>((cardId, index) => ({
@@ -66,11 +67,20 @@ function makeSnapshot(deck: DeckRecord): MatchSnapshot {
       y: 0,
       z: index,
     }))
-  const playerDeck = build('player')
-  const opponentDeck = build('opponent')
-  const mainId = deck.main_character || ''
-  const legendaries = Array.isArray(deck.legendary_cards) ? deck.legendary_cards.slice(0, 3) : []
-  const buildZones = (owner: PlayerKey) => {
+  const playerDeck = buildCards(deckPlayer, 'player')
+  const opponentDeck = buildCards(deck2, 'opponent')
+
+  const playerMain = deckPlayer.main_character || ''
+  const opponentMain = deck2.main_character || ''
+
+  const playerLegendaries = Array.isArray(deckPlayer.legendary_cards)
+    ? deckPlayer.legendary_cards.slice(0, 3)
+    : []
+  const opponentLegendaries = Array.isArray(deck2.legendary_cards)
+    ? deck2.legendary_cards.slice(0, 3)
+    : []
+
+  const buildZones = (mainId: string, legendaries: string[], owner: PlayerKey) => {
     const zones = emptyZones()
     if (mainId) {
       zones.main.push(placedInstance(mainId, owner))
@@ -81,11 +91,20 @@ function makeSnapshot(deck: DeckRecord): MatchSnapshot {
     })
     return zones
   }
+
   return {
     version: 3,
     players: {
-      player: { deck: playerDeck, hand: [], zones: buildZones('player') },
-      opponent: { deck: opponentDeck, hand: [], zones: buildZones('opponent') },
+      player: {
+        deck: playerDeck,
+        hand: [],
+        zones: buildZones(playerMain, playerLegendaries, 'player'),
+      },
+      opponent: {
+        deck: opponentDeck,
+        hand: [],
+        zones: buildZones(opponentMain, opponentLegendaries, 'opponent'),
+      },
     },
     initialDecks: {
       // o baralho embaralhado contém SÓ as cartas de quantidade — personagem e
@@ -93,10 +112,10 @@ function makeSnapshot(deck: DeckRecord): MatchSnapshot {
       player: playerDeck.map((c) => c.cardId),
       opponent: opponentDeck.map((c) => c.cardId),
     },
-    mainCharacters: { player: mainId, opponent: mainId },
-    playerLife: { player: 0, opponent: 0 },
+    mainCharacters: { player: playerMain, opponent: opponentMain },
+    playerLife: { player: 20, opponent: 20 },
     characterLife: { player: 0, opponent: 0 },
-    legendaryCards: { player: legendaries, opponent: legendaries },
+    legendaryCards: { player: playerLegendaries, opponent: opponentLegendaries },
     updatedAt: new Date().toISOString(),
   }
 }
@@ -106,7 +125,8 @@ export default function PlayLobbyPage() {
   const [cards, setCards] = useState<CardRecord[]>([])
   const [matches, setMatches] = useState<MatchRecord[]>([])
   const [open, setOpen] = useState(false)
-  const [selected, setSelected] = useState('')
+  const [selectedPlayer1, setSelectedPlayer1] = useState('')
+  const [selectedPlayer2, setSelectedPlayer2] = useState('')
   const [loading, setLoading] = useState(true)
   const [starting, setStarting] = useState(false)
   const navigate = useNavigate()
@@ -117,7 +137,10 @@ export default function PlayLobbyPage() {
         setDecks(d)
         setCards(c)
         setMatches(m)
-        if (d[0]) setSelected(d[0].id)
+        if (d[0]) {
+          setSelectedPlayer1(d[0].id)
+          setSelectedPlayer2(d[1] ? d[1].id : d[0].id)
+        }
       })
       .catch((error) =>
         toast({
@@ -129,18 +152,29 @@ export default function PlayLobbyPage() {
       .finally(() => setLoading(false))
   }, [])
   const map = useMemo(() => new Map(cards.map((card) => [card.id, card])), [cards])
-  const activeDeck = decks.find((deck) => deck.id === selected)
+  const activeDeck1 = decks.find((deck) => deck.id === selectedPlayer1)
+  const activeDeck2 = decks.find((deck) => deck.id === selectedPlayer2) || activeDeck1
   const start = async () => {
-    if (!activeDeck) return
-    if (!activeDeck.items.length)
+    if (!activeDeck1 || !activeDeck2) return
+    if (!activeDeck1.items.length)
       return toast({
         variant: 'destructive',
-        title: 'Este baralho está vazio',
+        title: 'O baralho do Jogador 1 está vazio',
+        description: 'Adicione cartas antes de iniciar a partida.',
+      })
+    if (!activeDeck2.items.length)
+      return toast({
+        variant: 'destructive',
+        title: 'O baralho do Jogador 2 está vazio',
         description: 'Adicione cartas antes de iniciar a partida.',
       })
     setStarting(true)
     try {
-      const match = await createMatch(activeDeck, makeSnapshot(activeDeck))
+      const match = await createMatch(
+        activeDeck1,
+        makeSnapshot(activeDeck1, activeDeck2),
+        activeDeck2,
+      )
       navigate(`/play/${match.id}`)
     } catch (error) {
       toast({
@@ -215,38 +249,41 @@ export default function PlayLobbyPage() {
           <DialogHeader>
             <DialogTitle>Preparar partida</DialogTitle>
             <DialogDescription>
-              O mesmo baralho será montado nos dois lados para o treino local.
+              Selecione o baralho para o Jogador 1 (Você) e para o Jogador 2 (Adversário).
             </DialogDescription>
           </DialogHeader>
           {decks.length ? (
             <div className="space-y-5">
               <div>
-                <Label>Escolha o baralho</Label>
-                <div className="mt-3 space-y-2">
+                <Label className="text-xs font-semibold uppercase tracking-wider text-primary">
+                  Baralho do Jogador 1 (Você)
+                </Label>
+                <div className="mt-2 max-h-44 space-y-2 overflow-y-auto pr-1">
                   {decks.map((deck) => {
                     const total = deck.items.reduce((sum, item) => sum + item.quantity, 0)
                     const hero = map.get(deck.main_character)
+                    const isSelected = selectedPlayer1 === deck.id
                     return (
                       <button
-                        key={deck.id}
+                        key={`p1-${deck.id}`}
                         type="button"
-                        onClick={() => setSelected(deck.id)}
-                        className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left transition ${selected === deck.id ? 'border-primary bg-primary/10' : 'border-border hover:border-primary/40'}`}
+                        onClick={() => setSelectedPlayer1(deck.id)}
+                        className={`flex w-full items-center gap-3 rounded-xl border p-2.5 text-left transition ${isSelected ? 'border-primary bg-primary/10' : 'border-border hover:border-primary/40'}`}
                       >
                         {hero ? (
                           <CardVisual
                             card={hero}
-                            className="w-12 shrink-0 rounded-md"
+                            className="w-10 shrink-0 rounded-md"
                             showDetails={false}
                           />
                         ) : (
-                          <div className="grid aspect-[63/88] w-12 place-items-center rounded bg-muted">
-                            <Swords className="h-5 w-5" />
+                          <div className="grid aspect-[63/88] w-10 place-items-center rounded bg-muted">
+                            <Swords className="h-4 w-4" />
                           </div>
                         )}
                         <div className="min-w-0 flex-1">
-                          <p className="truncate font-semibold">{deck.name}</p>
-                          <p className="text-xs text-muted-foreground">
+                          <p className="truncate text-sm font-semibold">{deck.name}</p>
+                          <p className="text-[11px] text-muted-foreground">
                             {total} cartas •{' '}
                             {deck.main_character ? 'personagem definido' : 'sem personagem'} •{' '}
                             {Array.isArray(deck.legendary_cards) ? deck.legendary_cards.length : 0}
@@ -258,6 +295,49 @@ export default function PlayLobbyPage() {
                   })}
                 </div>
               </div>
+
+              <div>
+                <Label className="text-xs font-semibold uppercase tracking-wider text-primary">
+                  Baralho do Jogador 2 (Adversário)
+                </Label>
+                <div className="mt-2 max-h-44 space-y-2 overflow-y-auto pr-1">
+                  {decks.map((deck) => {
+                    const total = deck.items.reduce((sum, item) => sum + item.quantity, 0)
+                    const hero = map.get(deck.main_character)
+                    const isSelected = selectedPlayer2 === deck.id
+                    return (
+                      <button
+                        key={`p2-${deck.id}`}
+                        type="button"
+                        onClick={() => setSelectedPlayer2(deck.id)}
+                        className={`flex w-full items-center gap-3 rounded-xl border p-2.5 text-left transition ${isSelected ? 'border-primary bg-primary/10' : 'border-border hover:border-primary/40'}`}
+                      >
+                        {hero ? (
+                          <CardVisual
+                            card={hero}
+                            className="w-10 shrink-0 rounded-md"
+                            showDetails={false}
+                          />
+                        ) : (
+                          <div className="grid aspect-[63/88] w-10 place-items-center rounded bg-muted">
+                            <Swords className="h-4 w-4" />
+                          </div>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-semibold">{deck.name}</p>
+                          <p className="text-[11px] text-muted-foreground">
+                            {total} cartas •{' '}
+                            {deck.main_character ? 'personagem definido' : 'sem personagem'} •{' '}
+                            {Array.isArray(deck.legendary_cards) ? deck.legendary_cards.length : 0}
+                            /3 lendárias
+                          </p>
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
               <Button
                 className="gold-button w-full"
                 onClick={() => void start()}

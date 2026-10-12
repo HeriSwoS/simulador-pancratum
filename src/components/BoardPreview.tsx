@@ -46,19 +46,15 @@ export function BoardPreview({ className = '' }: { className?: string }) {
         </div>
       </div>
       <div className="preview-right">
-        <div className="preview-zone resource">
-          <Sparkles />
-          <span>RECURSOS</span>
-        </div>
         <div className="preview-zone banishment">
           <Sparkles />
           <span>BANIMENTO</span>
         </div>
-        <div className="preview-zone resource">
+        <div className="preview-zone graveyard">
           <Skull />
           <span>CEMITÉRIO</span>
         </div>
-        <div className="preview-zone resource">
+        <div className="preview-zone deck">
           <Layers3 />
           <span>BARALHO</span>
         </div>
