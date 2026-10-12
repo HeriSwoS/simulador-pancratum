@@ -3,11 +3,22 @@ import type { RecordModel } from 'pocketbase'
 export type CardType = 'guerreiro' | 'arma' | 'armadura' | 'evento' | 'reliquia'
 export type CardRarity = 'comum' | 'incomum' | 'rara' | 'epica' | 'lendaria'
 
+export type CardColor =
+  | 'neutro'
+  | 'branco'
+  | 'azul'
+  | 'vermelho'
+  | 'verde'
+  | 'preto'
+  | 'dourado'
+  | 'roxo'
+
 export interface CardRecord extends RecordModel {
   owner: string
   name: string
   card_type: CardType
   rarity: CardRarity
+  color?: string
   attack: number
   defense: number
   description: string

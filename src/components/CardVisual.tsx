@@ -79,19 +79,41 @@ export function CardVisual({
   const image = cardImageUrl(card)
   return (
     <article
-      className={cn('tcg-card group/card', `rarity-${card.rarity}`, className)}
+      className={cn(
+        'tcg-card group/card',
+        `rarity-${card.rarity}`,
+        card.color && card.color !== 'neutro' && `card-color-${card.color}`,
+        className,
+      )}
       title={card.name}
     >
       {image ? (
-        <img
-          src={image}
-          alt={card.name}
-          className="absolute inset-0 h-full w-full rounded-[7px] object-cover"
-          draggable={false}
-        />
+        <>
+          <img
+            src={image}
+            alt={card.name}
+            className="absolute inset-0 h-full w-full rounded-[7px] object-cover"
+            draggable={false}
+          />
+          {card.color && card.color !== 'neutro' && (
+            <div
+              className="pointer-events-none absolute inset-x-0 bottom-0 h-1.5 opacity-90 transition-opacity"
+              style={{ backgroundColor: 'var(--card-accent)' }}
+            />
+          )}
+        </>
       ) : (
         <div className="generated-card">
-          <div className="generated-card__name">{card.name}</div>
+          <div
+            className="generated-card__name"
+            style={
+              card.color && card.color !== 'neutro'
+                ? { borderColor: 'var(--card-accent)', boxShadow: '0 0 6px var(--card-accent)' }
+                : undefined
+            }
+          >
+            {card.name}
+          </div>
           <div className="generated-card__art">
             <Sparkles />
             <span>{typeLabel[card.card_type]}</span>

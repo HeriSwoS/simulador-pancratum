@@ -27,11 +27,39 @@ export async function importCards(files: File[]): Promise<CardRecord[]> {
   return created
 }
 
-export async function updateCardDetails(
-  id: string,
-  data: { name: string; card_type: CardType; rarity: CardRarity },
-): Promise<CardRecord> {
-  return pb.collection<CardRecord>('cards').update(id, data)
+export interface UpdateCardInput {
+  name?: string
+  card_type?: CardType
+  rarity?: CardRarity
+  color?: string
+  image?: File | null
+  attack?: number
+  defense?: number
+  description?: string
+}
+
+export async function updateCardDetails(id: string, data: UpdateCardInput): Promise<CardRecord> {
+  if (data.image instanceof File) {
+    const form = new FormData()
+    if (data.name !== undefined) form.set('name', data.name)
+    if (data.card_type !== undefined) form.set('card_type', data.card_type)
+    if (data.rarity !== undefined) form.set('rarity', data.rarity)
+    if (data.color !== undefined) form.set('color', data.color)
+    if (data.attack !== undefined) form.set('attack', String(data.attack))
+    if (data.defense !== undefined) form.set('defense', String(data.defense))
+    if (data.description !== undefined) form.set('description', data.description)
+    form.set('image', data.image)
+    return pb.collection<CardRecord>('cards').update(id, form)
+  }
+  const payload: Record<string, unknown> = {}
+  if (data.name !== undefined) payload.name = data.name
+  if (data.card_type !== undefined) payload.card_type = data.card_type
+  if (data.rarity !== undefined) payload.rarity = data.rarity
+  if (data.color !== undefined) payload.color = data.color
+  if (data.attack !== undefined) payload.attack = data.attack
+  if (data.defense !== undefined) payload.defense = data.defense
+  if (data.description !== undefined) payload.description = data.description
+  return pb.collection<CardRecord>('cards').update(id, payload)
 }
 
 export async function deleteCard(id: string): Promise<void> {

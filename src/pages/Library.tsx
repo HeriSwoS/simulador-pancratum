@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ImagePlus, LoaderCircle, Maximize2, Search, Trash2, Upload } from 'lucide-react'
+import { Edit3, ImagePlus, LoaderCircle, Maximize2, Search, Trash2, Upload } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import { CardVisual } from '@/components/CardVisual'
 import { Badge } from '@/components/ui/badge'
@@ -28,6 +28,7 @@ import {
   listCards,
   updateCardBack,
   updateCardDetails,
+  type UpdateCardInput,
 } from '@/services/cards'
 import type { CardRarity, CardRecord, CardType } from '@/types/domain'
 import pb from '@/lib/pocketbase/client'
@@ -47,6 +48,17 @@ const rarityOptions: { value: CardRarity | 'todas'; label: string }[] = [
   { value: 'rara', label: 'Rara' },
   { value: 'epica', label: 'Épica' },
   { value: 'lendaria', label: 'Lendária' },
+]
+
+export const colorOptions = [
+  { value: 'neutro', label: 'Neutro / Padrão', colorHex: '#8a7a63' },
+  { value: 'branco', label: 'Branco (Luz)', colorHex: '#e5e7eb' },
+  { value: 'azul', label: 'Azul (Água / Mente)', colorHex: '#3b82f6' },
+  { value: 'vermelho', label: 'Vermelho (Fogo / Força)', colorHex: '#ef4444' },
+  { value: 'verde', label: 'Verde (Terra / Vida)', colorHex: '#22c55e' },
+  { value: 'preto', label: 'Preto (Trevas / Morte)', colorHex: '#374151' },
+  { value: 'dourado', label: 'Dourado (Divino / Épico)', colorHex: '#eab308' },
+  { value: 'roxo', label: 'Roxo (Arcano / Caos)', colorHex: '#a855f7' },
 ]
 
 export default function LibraryPage() {
@@ -141,21 +153,19 @@ export default function LibraryPage() {
       })
     }
   }
-  const saveMeta = async (
-    card: CardRecord,
-    patch: { name: string; card_type: CardType; rarity: CardRarity },
-  ) => {
+  const saveMeta = async (card: CardRecord, patch: UpdateCardInput) => {
     try {
       const updated = await updateCardDetails(card.id, patch)
       setCards((old) => old.map((item) => (item.id === card.id ? updated : item)))
       setSelected(updated)
-      toast({ title: 'Carta atualizada' })
+      toast({ title: 'Carta atualizada com sucesso!' })
     } catch (error) {
       toast({
         variant: 'destructive',
         title: 'Não foi possível atualizar',
         description: error instanceof Error ? error.message : 'Tente novamente.',
       })
+      throw error
     }
   }
   return (
@@ -234,25 +244,72 @@ export default function LibraryPage() {
         </div>
       ) : filtered.length ? (
         <div className="card-library-grid">
-          {filtered.map((card) => (
-            <button
-              type="button"
-              key={card.id}
-              onClick={() => setSelected(card)}
-              className="card-library-item text-left"
-            >
-              <CardVisual card={card} />
-              <div className="mt-3 flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <h3 className="truncate font-display text-sm font-semibold">{card.name}</h3>
-                  <p className="mt-1 text-xs capitalize text-muted-foreground">
-                    {card.card_type} • {card.rarity}
-                  </p>
+          {filtered.map((card) => {
+            const isOwner = !card.is_public && card.owner === pb.authStore.record?.id
+            return (
+              <div
+                key={card.id}
+                className="group relative flex flex-col justify-between rounded-xl border border-primary/15 bg-card/40 p-2.5 transition duration-200 hover:-translate-y-1 hover:border-primary/40 hover:bg-card/70 hover:shadow-lg"
+              >
+                <div className="cursor-pointer" onClick={() => setSelected(card)}>
+                  <CardVisual card={card} />
                 </div>
-                <Maximize2 className="h-4 w-4 shrink-0 text-primary opacity-0 transition group-hover:opacity-100" />
+                <div className="mt-2.5 flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1 cursor-pointer" onClick={() => setSelected(card)}>
+                    <h3
+                      className="truncate font-display text-sm font-semibold text-foreground/95"
+                      title={card.name}
+                    >
+                      {card.name}
+                    </h3>
+                    <p className="mt-0.5 text-xs capitalize text-muted-foreground">
+                      {card.card_type} • {card.rarity}
+                      {card.color && card.color !== 'neutro' && ` • ${card.color}`}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-1">
+                    {isOwner && (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7 text-primary hover:bg-primary/15 hover:text-primary"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setSelected(card)
+                        }}
+                        title="Editar carta"
+                      >
+                        <Edit3 className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                    {isOwner && (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7 text-destructive/80 hover:bg-destructive/15 hover:text-destructive"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          void remove(card)
+                        }}
+                        title="Excluir carta"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                      onClick={() => setSelected(card)}
+                      title="Ver detalhes"
+                    >
+                      <Maximize2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
               </div>
-            </button>
-          ))}
+            )
+          })}
         </div>
       ) : (
         <div className="empty-state">
@@ -281,97 +338,237 @@ function CardDetails({
   card: CardRecord | null
   onClose: () => void
   onDelete: (card: CardRecord) => void
-  onSave: (
-    card: CardRecord,
-    patch: { name: string; card_type: CardType; rarity: CardRarity },
-  ) => void
+  onSave: (card: CardRecord, patch: UpdateCardInput) => Promise<void>
 }) {
   const [name, setName] = useState('')
   const [type, setType] = useState<CardType>('evento')
   const [rarity, setRarity] = useState<CardRarity>('comum')
+  const [color, setColor] = useState('neutro')
+  const [imageFile, setImageFile] = useState<File | null>(null)
+  const [imagePreview, setImagePreview] = useState<string>('')
+  const [saving, setSaving] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
   useEffect(() => {
     if (card) {
       setName(card.name)
       setType(card.card_type)
       setRarity(card.rarity)
+      setColor(card.color || 'neutro')
+      setImageFile(null)
+      setImagePreview('')
     }
   }, [card])
+
   const editable = card && !card.is_public && card.owner === pb.authStore.record?.id
+
+  const handleImageChange = (file?: File) => {
+    if (!file) return
+    setImageFile(file)
+    setImagePreview(URL.createObjectURL(file))
+  }
+
+  const handleSave = async () => {
+    if (!card) return
+    setSaving(true)
+    try {
+      await onSave(card, {
+        name,
+        card_type: type,
+        rarity,
+        color,
+        ...(imageFile ? { image: imageFile } : {}),
+      })
+      setImageFile(null)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // Objeto temporário para prévia visual em tempo real dentro do modal
+  const previewCard: CardRecord | null = useMemo(() => {
+    if (!card) return null
+    return {
+      ...card,
+      name,
+      card_type: type,
+      rarity,
+      color,
+    }
+  }, [card, name, type, rarity, color])
+
   return (
     <Dialog open={Boolean(card)} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Detalhes da carta</DialogTitle>
+          <DialogTitle>{editable ? 'Editar carta' : 'Detalhes da carta'}</DialogTitle>
           <DialogDescription>
-            Veja a arte em tamanho maior e ajuste os dados das cartas importadas.
+            {editable
+              ? 'Edite a imagem da frente, nome, tipo, raridade e a cor/elemento da carta.'
+              : 'Veja a arte em tamanho maior e consulte as informações da carta oficial.'}
           </DialogDescription>
         </DialogHeader>
-        {card && (
+        {card && previewCard && (
           <div className="grid gap-7 sm:grid-cols-[240px_1fr]">
-            <CardVisual card={card} className="mx-auto w-full max-w-[240px]" />
+            <div className="flex flex-col items-center gap-3">
+              <div className="relative w-full max-w-[240px]">
+                {imagePreview ? (
+                  <article
+                    className={cn(
+                      'tcg-card group/card',
+                      `rarity-${rarity}`,
+                      color && color !== 'neutro' && `card-color-${color}`,
+                      'mx-auto w-full max-w-[240px]',
+                    )}
+                    title={name}
+                  >
+                    <img
+                      src={imagePreview}
+                      alt={name}
+                      className="absolute inset-0 h-full w-full rounded-[7px] object-cover"
+                    />
+                    {color && color !== 'neutro' && (
+                      <div
+                        className="pointer-events-none absolute inset-x-0 bottom-0 h-1.5 opacity-90"
+                        style={{ backgroundColor: 'var(--card-accent)' }}
+                      />
+                    )}
+                  </article>
+                ) : (
+                  <CardVisual card={previewCard} className="mx-auto w-full max-w-[240px]" />
+                )}
+              </div>
+
+              {editable && (
+                <>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    hidden
+                    onChange={(e) => handleImageChange(e.target.files?.[0])}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="w-full max-w-[240px]"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <Upload className="mr-2 h-4 w-4" />
+                    {card.image || imagePreview
+                      ? 'Substituir arte (frente)'
+                      : 'Adicionar arte (frente)'}
+                  </Button>
+                  {imageFile && (
+                    <p className="text-center text-xs text-primary font-medium">
+                      Nova imagem selecionada: {imageFile.name}
+                    </p>
+                  )}
+                </>
+              )}
+            </div>
+
             <div className="space-y-4">
               <div>
-                <Label>Nome</Label>
+                <Label>Nome da carta</Label>
                 <Input
                   className="mt-2"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   disabled={!editable}
+                  placeholder="Ex: Guerreiro de Bronze"
                 />
               </div>
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div>
+                  <Label>Tipo</Label>
+                  <Select
+                    value={type}
+                    onValueChange={(v) => setType(v as CardType)}
+                    disabled={!editable}
+                  >
+                    <SelectTrigger className="mt-2">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {typeOptions.slice(1).map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label>Raridade</Label>
+                  <Select
+                    value={rarity}
+                    onValueChange={(v) => setRarity(v as CardRarity)}
+                    disabled={!editable}
+                  >
+                    <SelectTrigger className="mt-2">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {rarityOptions.slice(1).map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
               <div>
-                <Label>Tipo</Label>
-                <Select
-                  value={type}
-                  onValueChange={(v) => setType(v as CardType)}
-                  disabled={!editable}
-                >
+                <Label>Cor / Elemento da carta</Label>
+                <Select value={color} onValueChange={(v) => setColor(v)} disabled={!editable}>
                   <SelectTrigger className="mt-2">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {typeOptions.slice(1).map((option) => (
+                    {colorOptions.map((option) => (
                       <SelectItem key={option.value} value={option.value}>
-                        {option.label}
+                        <div className="flex items-center gap-2">
+                          <span
+                            className="inline-block h-3 w-3 rounded-full border border-white/20"
+                            style={{ backgroundColor: option.colorHex }}
+                          />
+                          <span>{option.label}</span>
+                        </div>
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
-              <div>
-                <Label>Raridade</Label>
-                <Select
-                  value={rarity}
-                  onValueChange={(v) => setRarity(v as CardRarity)}
-                  disabled={!editable}
-                >
-                  <SelectTrigger className="mt-2">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {rarityOptions.slice(1).map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              {card.description && (
-                <p className="rounded-lg bg-muted/40 p-3 text-sm text-muted-foreground">
-                  {card.description}
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  A cor define o elemento e aplica destaque colorido na moldura e detalhe da carta.
                 </p>
+              </div>
+
+              {card.description && (
+                <div>
+                  <Label className="text-xs text-muted-foreground">Descrição</Label>
+                  <p className="mt-1 rounded-lg bg-muted/40 p-3 text-sm text-muted-foreground">
+                    {card.description}
+                  </p>
+                </div>
               )}
-              <div className="flex flex-wrap gap-2">
+
+              <div className="flex flex-wrap gap-2 pt-2">
                 {editable ? (
                   <>
                     <Button
                       className="gold-button"
-                      onClick={() => onSave(card, { name, card_type: type, rarity })}
+                      onClick={() => void handleSave()}
+                      disabled={saving}
                     >
+                      {saving ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : null}
                       Salvar alterações
                     </Button>
-                    <Button variant="destructive" onClick={() => onDelete(card)}>
+                    <Button variant="destructive" onClick={() => onDelete(card)} disabled={saving}>
                       <Trash2 className="mr-2 h-4 w-4" />
                       Excluir
                     </Button>

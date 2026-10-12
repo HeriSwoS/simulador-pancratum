@@ -1,5 +1,14 @@
 # Changelog — Simulador PANCRATUM
 
+## 0.0.8
+
+- **Edição completa de cartas na Biblioteca**:
+  - **Substituir/adicionar imagem da carta (frente)**: permite enviar uma nova imagem PNG, JPG ou WEBP para a frente da carta diretamente pela biblioteca, igual ao verso.
+  - **Edição de metadados**: alteração de Nome, Tipo (Guerreiro, Arma, Armadura, Evento, Relíquia), Raridade (Comum, Incomum, Rara, Épica, Lendária) e Cor/Elemento da carta (Neutro, Branco/Luz, Azul/Água, Vermelho/Fogo, Verde/Terra, Preto/Trevas, Dourado/Divino, Roxo/Arcano).
+  - **Visual da cor/elemento**: aplicação da cor selecionada nas bordas e moldura da carta (`CardVisual` e estilos CSS), permitindo identificar facilmente a identidade elementar de cada carta.
+  - **Botão de editar (lápis)** nas cartas da biblioteca para acesso rápido à edição individual.
+  - **Migration 0008**: adicionado campo `color` à coleção `cards` do PocketBase, mantendo total retrocompatibilidade com cartas existentes.
+
 ## 0.0.7
 
 - **Centralização perfeita e prevenção de transbordamento nas zonas**:
