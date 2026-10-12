@@ -303,12 +303,16 @@ export default function MatchPage() {
       const card = takeCard(draft, locator)
       if (!card) return
       const list = draft.players[player].zones[zone]
-      // x/y marcam o CENTRO da carta (em % da zona); sem coordenada, espalha a partir do centro
-      const index = list.length
-      const spreadX = Math.min(index, 7) * 2.5
-      const spreadY = Math.min(index, 6) * 1.7
-      card.x = Math.max(31.5, Math.min(68.5, x ?? 50 + spreadX))
-      card.y = Math.max(31.5, Math.min(68.5, y ?? 50 + spreadY))
+      // Se não houver coordenadas explícitas (ex.: mover via clique na zona ou menu),
+      // a carta fica perfeitamente centralizada em (50, 50).
+      // Se houver arrasto livre com coordenadas, limitamos o centro (42-58) para nunca transbordar a zona.
+      if (x === undefined || y === undefined) {
+        card.x = 50
+        card.y = 50
+      } else {
+        card.x = Math.max(42, Math.min(58, x))
+        card.y = Math.max(42, Math.min(58, y))
+      }
       card.z = list.reduce((max, item) => Math.max(max, item.z), 0) + 1
       list.push(card)
     })
@@ -370,13 +374,18 @@ export default function MatchPage() {
     const locator = parseDrag(event)
     if (!locator) return
     const rect = event.currentTarget.getBoundingClientRect()
-    // o centro da carta fica exatamente sob o cursor (coordenadas em % da zona)
-    let x = ((event.clientX - rect.left) / rect.width) * 100
-    let y = ((event.clientY - rect.top) / rect.height) * 100
+    // Calcula posição relativa ao centro da zona (em % de 0 a 100)
+    let rawX = ((event.clientX - rect.left) / rect.width) * 100
+    let rawY = ((event.clientY - rect.top) / rect.height) * 100
     if (player === 'opponent') {
-      x = 100 - x
-      y = 100 - y
+      rawX = 100 - rawX
+      rawY = 100 - rawY
     }
+    // Snap magnético: se soltar em torno do centro (entre 35% e 65%),
+    // fixa exatamente em 50%, 50% para um alinhamento perfeito sem desvio acidental.
+    const snapThreshold = 15
+    const x = Math.abs(rawX - 50) <= snapThreshold ? 50 : rawX
+    const y = Math.abs(rawY - 50) <= snapThreshold ? 50 : rawY
     moveToZone(locator, player, zone, x, y)
     setDragging(null)
     setSelected(null)

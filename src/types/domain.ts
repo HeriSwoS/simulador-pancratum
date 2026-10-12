@@ -103,10 +103,25 @@ function coerceLife(...values: unknown[]): number {
 /** Preenche campos novos com valores padrão para snapshots salvos antes deles existirem. */
 export function normalizeSnapshot(snapshot: MatchSnapshot): MatchSnapshot {
   const legacy = snapshot as LegacySnapshotFields
-  const normalizePlayer = (player: PlayerState): PlayerState => ({
-    ...player,
-    zones: { ...emptyZones(), ...player.zones },
-  })
+  const normalizePlayer = (player: PlayerState): PlayerState => {
+    const rawZones = { ...emptyZones(), ...player.zones }
+    const zones = Object.fromEntries(
+      Object.entries(rawZones).map(([zId, cards]) => [
+        zId,
+        cards.map((card) => {
+          // Garante que cartas já salvas com coordenadas descentralizadas ou fora dos limites
+          // sejam re-centradas para 50%, 50% caso estivessem no spread antigo ou transbordando
+          const x = typeof card.x === 'number' && card.x >= 40 && card.x <= 60 ? 50 : (card.x ?? 50)
+          const y = typeof card.y === 'number' && card.y >= 40 && card.y <= 60 ? 50 : (card.y ?? 50)
+          return { ...card, x, y }
+        }),
+      ]),
+    ) as Record<ZoneId, CardInstance[]>
+    return {
+      ...player,
+      zones,
+    }
+  }
   const legendaries = (key: PlayerKey): string[] => {
     const value = legacy.legendaryCards?.[key]
     return Array.isArray(value) ? value.filter((id) => typeof id === 'string').slice(0, 3) : []

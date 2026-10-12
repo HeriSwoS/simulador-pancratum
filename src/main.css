@@ -711,12 +711,18 @@
   }
   .board-card-wrap {
     position: absolute;
-    width: 66%;
-    aspect-ratio: 63/88;
+    /* Altura da carta é 84% da zona e largura derivada pela proporção oficial 63/88 (~60.1% da altura).
+       Mesmo girada a 90° (deitada: largura vira 84% e altura 60.1%), a carta cabe inteiramente
+       nos 100% da zona sem transbordar, mantendo o centro perfeitamente no meio. */
+    height: 84%;
+    width: auto;
+    aspect-ratio: 63 / 88;
+    max-width: 90%;
     cursor: grab;
     transition: filter 0.18s ease;
     touch-action: none;
-    /* left/top já apontam para o CENTRO da carta (x/y em % da zona) */
+    /* Centralização perfeita em relação ao centro (x/y) */
+    transform-origin: center center;
     translate: -50% -50%;
     transform: rotate(var(--card-rotation, 0deg));
   }
@@ -1178,7 +1184,8 @@
     grid-template-columns: 110px 1fr;
   }
   .board-card-wrap {
-    width: 68%;
+    height: 84%;
+    width: auto;
   }
 }
 @media (max-width: 640px) {
