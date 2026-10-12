@@ -33,7 +33,7 @@ import {
   X,
 } from 'lucide-react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { CardBack, CardVisual } from '@/components/CardVisual'
+import { CardBack, CardVisual, normalizeCardColor } from '@/components/CardVisual'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -92,7 +92,7 @@ const centerRows: { kind: ZoneKind; zones: ZoneId[] }[] = [
 ]
 const legendaryZones: ZoneId[] = ['legendary1', 'legendary2', 'legendary3']
 const sideZones: { id: ZoneId; kind: ZoneKind }[] = [
-  { id: 'resources', kind: 'resource' },
+  { id: 'banishment', kind: 'banishment' },
   { id: 'graveyard', kind: 'graveyard' },
 ]
 
@@ -298,7 +298,30 @@ export default function MatchPage() {
     window.setTimeout(() => setShuffling(null), 650)
     toast({ title: 'Baralho embaralhado' })
   }
-  const moveToZone = (locator: Locator, player: PlayerKey, zone: ZoneId, x?: number, y?: number) =>
+  const moveToZone = (
+    locator: Locator,
+    player: PlayerKey,
+    zone: ZoneId,
+    x?: number,
+    y?: number,
+  ) => {
+    // Validação: Zonas LENDA 1, 2 e 3 só aceitam cartas de classe Lenda
+    if (zone === 'legendary1' || zone === 'legendary2' || zone === 'legendary3') {
+      const targetCard = locateCard(state, locator)
+      if (targetCard) {
+        const cardDef = cardMap.get(targetCard.cardId)
+        const cardClass = cardDef?.card_class || 'normal'
+        if (cardClass !== 'lenda') {
+          toast({
+            variant: 'destructive',
+            title: 'Zona exclusiva para Lendas',
+            description: `Apenas cartas da classe Lenda podem ser colocadas na zona ${zoneLabels[zone]}. “${cardDef?.name || 'Esta carta'}” é de classe ${cardClass === 'mestre' ? 'Mestre' : 'Normal'}.`,
+          })
+          return
+        }
+      }
+    }
+
     update((draft) => {
       const card = takeCard(draft, locator)
       if (!card) return
@@ -316,6 +339,7 @@ export default function MatchPage() {
       card.z = list.reduce((max, item) => Math.max(max, item.z), 0) + 1
       list.push(card)
     })
+  }
   const moveToHand = (locator: Locator, player: PlayerKey, index?: number) =>
     update((draft) => {
       const card = takeCard(draft, locator)
@@ -761,8 +785,8 @@ function Board(props: BoardProps) {
         <div className="board-banish">
           <BoardZone
             player={player}
-            zone="banishment"
-            kind="banishment"
+            zone="resources"
+            kind="resource"
             state={state}
             cardMap={cardMap}
             dragging={dragging}
@@ -821,6 +845,54 @@ function BoardZone({
   const instances = state.players[player].zones[zone]
   const upright = instances.filter((card) => card.rotation === 0).length
   const lying = instances.length - upright
+
+  // Contagem de cores na zona de Recursos considerando SOMENTE as cartas em pé (rotation === 0)
+  const colorCounts = useMemo(() => {
+    if (kind !== 'resource') return []
+    const counts: Record<string, number> = {}
+    instances.forEach((inst) => {
+      if (inst.rotation === 0) {
+        const cRecord = cardMap.get(inst.cardId)
+        const norm = normalizeCardColor(cRecord?.color) || 'neutro'
+        counts[norm] = (counts[norm] || 0) + 1
+      }
+    })
+    const colorMeta: Record<
+      string,
+      { label: string; plural: string; hex: string; border: string }
+    > = {
+      azul: { label: 'azul', plural: 'azuis', hex: '#2563eb', border: '#3b82f6' },
+      vermelho: { label: 'vermelha', plural: 'vermelhas', hex: '#dc2626', border: '#ef4444' },
+      amarelo: { label: 'amarela', plural: 'amarelas', hex: '#eab308', border: '#facc15' },
+      verde: { label: 'verde', plural: 'verdes', hex: '#16a34a', border: '#22c55e' },
+      laranja: { label: 'laranja', plural: 'laranjas', hex: '#ea580c', border: '#f97316' },
+      roxo: { label: 'roxa', plural: 'roxas', hex: '#9333ea', border: '#a855f7' },
+      branco: { label: 'branca', plural: 'brancas', hex: '#f3f4f6', border: '#ffffff' },
+      preto: { label: 'preta', plural: 'pretas', hex: '#1f2937', border: '#4b5563' },
+      cinza: { label: 'cinza', plural: 'cinzas', hex: '#6b7280', border: '#9ca3af' },
+      neutro: { label: 'cinza', plural: 'cinzas', hex: '#6b7280', border: '#9ca3af' },
+    }
+    return Object.entries(counts).map(([colorKey, count]) => {
+      const meta = colorMeta[colorKey] || {
+        label: colorKey,
+        plural: colorKey,
+        hex: '#70bd4e',
+        border: '#8fd06a',
+      }
+      return {
+        key: colorKey,
+        count,
+        label: count === 1 ? `${count} ${meta.label}` : `${count} ${meta.plural}`,
+        hex: meta.hex,
+        border: meta.border,
+      }
+    })
+  }, [kind, instances, cardMap])
+
+  // Na zona de recursos (que agora é a zona maior na coluna externa), se houver múltiplas cartas,
+  // aplicamos o leque sobreposto com offset visível para permitir visualizar e clicar individualmente
+  const isFanZone = zone === 'resources'
+
   return (
     <div
       className={cn(
@@ -841,6 +913,26 @@ function BoardZone({
       <div className={cn('zone-label', zone === 'main' && 'zone-label--top')}>
         {zoneLabels[zone]}
       </div>
+
+      {/* HUD de contagem de cores na zona de recursos (somente cartas em pé) */}
+      {kind === 'resource' && colorCounts.length > 0 && (
+        <div
+          className="resource-color-hud"
+          title="Cores das cartas em pé presentes na zona de recursos"
+        >
+          {colorCounts.map((c) => (
+            <span
+              key={c.key}
+              className="resource-color-chip"
+              style={{ '--chip-border': c.border } as CSSProperties}
+            >
+              <span className="resource-color-dot" style={{ backgroundColor: c.hex }} />
+              <span>{c.label}</span>
+            </span>
+          ))}
+        </div>
+      )}
+
       {kind === 'resource' && (
         <div className="zone-res-count" aria-label="Contador de recursos">
           <span className="up" title="Cartas em pé (disponíveis)">
@@ -852,8 +944,27 @@ function BoardZone({
         </div>
       )}
       {instances.length > 0 && <span className="zone-count">{instances.length}</span>}
-      {instances.map((instance) => {
+      {instances.map((instance, index) => {
         const locator: Locator = { player, area: 'zone', zone, uid: instance.uid }
+
+        // Se for zona em leque (Recursos), calcula deslocamento e z-index proporcional
+        let fanOffsetStyle: CSSProperties | undefined
+        if (isFanZone && instances.length > 1) {
+          const count = instances.length
+          // Passo de deslocamento em % dentro da zona maior
+          const stepX = Math.min(22, 55 / Math.max(1, count - 1))
+          const stepY = Math.min(12, 30 / Math.max(1, count - 1))
+          const startX = 50 - ((count - 1) * stepX) / 2
+          const startY = 48 - ((count - 1) * stepY) / 2
+          const posX = startX + index * stepX
+          const posY = startY + index * stepY
+          fanOffsetStyle = {
+            left: `${posX}%`,
+            top: `${posY}%`,
+            zIndex: index + 5,
+          }
+        }
+
         return (
           <BoardCard
             key={instance.uid}
@@ -861,6 +972,8 @@ function BoardZone({
             card={cardMap.get(instance.cardId)}
             locator={locator}
             selected={selected?.uid === instance.uid}
+            overrideStyle={fanOffsetStyle}
+            isFan={isFanZone && instances.length > 1}
             onDragStart={onDragStart}
             onClick={onCardClick}
             onPreview={onPreview}
@@ -878,6 +991,8 @@ function BoardCard({
   card,
   locator,
   selected,
+  overrideStyle,
+  isFan,
   onDragStart,
   onClick,
   onPreview,
@@ -887,6 +1002,8 @@ function BoardCard({
   card?: CardRecord
   locator: Locator
   selected: boolean
+  overrideStyle?: CSSProperties
+  isFan?: boolean
   onDragStart: BoardProps['onDragStart']
   onClick: BoardProps['onCardClick']
   onPreview: BoardProps['onPreview']
@@ -897,10 +1014,15 @@ function BoardCard({
     top: `${instance.y}%`,
     zIndex: instance.z + 2,
     '--card-rotation': `${instance.rotation}deg`,
+    ...overrideStyle,
   } as CSSProperties
   return (
     <div
-      className={cn('board-card-wrap', selected && 'card-selected')}
+      className={cn(
+        'board-card-wrap',
+        isFan && 'board-card-wrap--fan',
+        selected && 'card-selected',
+      )}
       style={style}
       draggable
       onDragStart={(e) => onDragStart(e, locator)}

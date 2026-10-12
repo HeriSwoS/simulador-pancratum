@@ -29,7 +29,7 @@ import {
   updateCardDetails,
   type UpdateCardInput,
 } from '@/services/cards'
-import type { CardRarity, CardRecord, CardType } from '@/types/domain'
+import type { CardClass, CardRarity, CardRecord, CardType } from '@/types/domain'
 import pb from '@/lib/pocketbase/client'
 
 const typeOptions: { value: CardType | 'todos'; label: string }[] = [
@@ -49,6 +49,18 @@ const rarityOptions: { value: CardRarity | 'todas'; label: string }[] = [
   { value: 'epica', label: 'Épica' },
   { value: 'lendaria', label: 'Lendária' },
 ]
+
+export const classOptions: { value: CardClass; label: string; desc: string }[] = [
+  { value: 'normal', label: 'Normal', desc: 'Até 4 cópias no baralho' },
+  { value: 'lenda', label: 'Lenda', desc: 'Máximo 1 cópia; entra nas zonas Lenda' },
+  { value: 'mestre', label: 'Mestre', desc: 'Apenas 1 por baralho; é o Personagem Principal' },
+]
+
+const classDisplayNames: Record<CardClass, string> = {
+  normal: 'Normal',
+  lenda: 'Lenda',
+  mestre: 'Mestre',
+}
 
 export const colorOptions = [
   { value: 'azul', label: 'Azul', colorHex: '#2563eb' },
@@ -98,6 +110,7 @@ export default function LibraryPage() {
   const [query, setQuery] = useState('')
   const [type, setType] = useState<CardType | 'todos'>('todos')
   const [rarity, setRarity] = useState<CardRarity | 'todas'>('todas')
+  const [cardClassFilter, setCardClassFilter] = useState<CardClass | 'todas'>('todas')
   const [selected, setSelected] = useState<CardRecord | null>(null)
   const [backOpen, setBackOpen] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -132,13 +145,15 @@ export default function LibraryPage() {
         const cardTypeNorm = typeDisplayNames[card.card_type]?.toLowerCase() || card.card_type
         const selectedTypeNorm =
           type === 'todos' ? 'todos' : typeDisplayNames[type]?.toLowerCase() || type
+        const cardClass = card.card_class || 'normal'
         return (
           card.name.toLocaleLowerCase('pt-BR').includes(query.toLocaleLowerCase('pt-BR')) &&
           (type === 'todos' || card.card_type === type || cardTypeNorm === selectedTypeNorm) &&
-          (rarity === 'todas' || card.rarity === rarity)
+          (rarity === 'todas' || card.rarity === rarity) &&
+          (cardClassFilter === 'todas' || cardClass === cardClassFilter)
         )
       }),
-    [cards, query, type, rarity],
+    [cards, query, type, rarity, cardClassFilter],
   )
   const upload = async (files: FileList | null) => {
     if (!files?.length) return
@@ -237,7 +252,7 @@ export default function LibraryPage() {
           </Button>
         </div>
       </div>
-      <div className="arcane-panel mb-8 grid gap-3 p-4 md:grid-cols-[1fr_220px_220px]">
+      <div className="arcane-panel mb-8 grid gap-3 p-4 md:grid-cols-[1fr_180px_180px_180px]">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -271,6 +286,20 @@ export default function LibraryPage() {
             ))}
           </SelectContent>
         </Select>
+        <Select
+          value={cardClassFilter}
+          onValueChange={(value) => setCardClassFilter(value as CardClass | 'todas')}
+        >
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todas">Todas as classes</SelectItem>
+            <SelectItem value="normal">Classe: Normal</SelectItem>
+            <SelectItem value="lenda">Classe: Lenda</SelectItem>
+            <SelectItem value="mestre">Classe: Mestre</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
       {loading ? (
         <div className="grid min-h-80 place-items-center">
@@ -282,6 +311,8 @@ export default function LibraryPage() {
             const isOwner = !card.owner || card.owner === pb.authStore.record?.id
             const displayType = typeDisplayNames[card.card_type] || card.card_type
             const displayColor = card.color ? colorDisplayNames[card.color] || card.color : null
+            const cardClass = card.card_class || 'normal'
+            const displayClass = classDisplayNames[cardClass]
             return (
               <div
                 key={card.id}
@@ -292,14 +323,29 @@ export default function LibraryPage() {
                 </div>
                 <div className="mt-2.5 flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1 cursor-pointer" onClick={() => setSelected(card)}>
-                    <h3
-                      className="truncate font-display text-sm font-semibold text-foreground/95"
-                      title={card.name}
-                    >
-                      {card.name}
-                    </h3>
+                    <div className="flex items-center gap-1.5">
+                      <h3
+                        className="truncate font-display text-sm font-semibold text-foreground/95"
+                        title={card.name}
+                      >
+                        {card.name}
+                      </h3>
+                      {cardClass !== 'normal' && (
+                        <span
+                          className={cn(
+                            'shrink-0 rounded px-1 py-0.2 text-[9px] font-bold uppercase tracking-wide',
+                            cardClass === 'mestre'
+                              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                              : 'bg-purple-500/20 text-purple-300 border border-purple-500/40',
+                          )}
+                        >
+                          {displayClass}
+                        </span>
+                      )}
+                    </div>
                     <p className="mt-0.5 text-xs text-muted-foreground">
                       {displayType} • <span className="capitalize">{card.rarity}</span>
+                      {cardClass === 'normal' && ` • Normal`}
                       {displayColor && ` • ${displayColor}`}
                     </p>
                   </div>
@@ -379,6 +425,7 @@ function CardDetails({
   const [name, setName] = useState('')
   const [type, setType] = useState<CardType>('personagem')
   const [rarity, setRarity] = useState<CardRarity>('comum')
+  const [cardClass, setCardClass] = useState<CardClass>('normal')
   const [color, setColor] = useState('azul')
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string>('')
@@ -395,6 +442,7 @@ function CardDetails({
       ) as CardType
       setType(mappedType || 'personagem')
       setRarity(card.rarity)
+      setCardClass(card.card_class || 'normal')
       setColor(normalizeCardColor(card.color) || 'azul')
       setImageFile(null)
       setImagePreview('')
@@ -417,6 +465,7 @@ function CardDetails({
         name,
         card_type: type,
         rarity,
+        card_class: cardClass,
         color,
         ...(imageFile ? { image: imageFile } : {}),
       })
@@ -434,9 +483,10 @@ function CardDetails({
       name,
       card_type: type,
       rarity,
+      card_class: cardClass,
       color,
     }
-  }, [card, name, type, rarity, color])
+  }, [card, name, type, rarity, cardClass, color])
 
   return (
     <Dialog open={Boolean(card)} onOpenChange={(open) => !open && onClose()}>
@@ -444,7 +494,7 @@ function CardDetails({
         <DialogHeader>
           <DialogTitle>Editar carta</DialogTitle>
           <DialogDescription>
-            Edite a imagem da frente, nome, tipo, raridade e a cor da carta.
+            Edite a imagem da frente, nome, classe (Normal, Lenda, Mestre), tipo, raridade e cor.
           </DialogDescription>
         </DialogHeader>
         {card && previewCard && (
@@ -523,6 +573,33 @@ function CardDetails({
                   disabled={!editable}
                   placeholder="Ex: Guerreiro Ancestral"
                 />
+              </div>
+
+              <div>
+                <Label>Classe da carta</Label>
+                <Select
+                  value={cardClass}
+                  onValueChange={(v) => setCardClass(v as CardClass)}
+                  disabled={!editable}
+                >
+                  <SelectTrigger className="mt-2">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {classOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        <div className="flex flex-col">
+                          <span className="font-medium">{option.label}</span>
+                          <span className="text-[11px] text-muted-foreground">{option.desc}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  Normal: até 4 cópias no baralho • Lenda: máx. 1 cópia (zonas Lenda) • Mestre: 1
+                  por baralho (Personagem Principal).
+                </p>
               </div>
 
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

@@ -15,6 +15,8 @@ export type CardType =
 
 export type CardRarity = 'comum' | 'incomum' | 'rara' | 'epica' | 'lendaria'
 
+export type CardClass = 'normal' | 'lenda' | 'mestre'
+
 export type CardColor =
   | 'azul'
   | 'vermelho'
@@ -34,6 +36,7 @@ export interface CardRecord extends RecordModel {
   name: string
   card_type: CardType
   rarity: CardRarity
+  card_class?: CardClass
   color?: string
   attack: number
   defense: number
@@ -109,7 +112,7 @@ export interface MatchSnapshot {
   playerLife: Record<PlayerKey, number>
   /** vida do PERSONAGEM PRINCIPAL de cada lado, independente da vida do jogador */
   characterLife: Record<PlayerKey, number>
-  /** ids das 3 lendárias que nascem nas zonas LENDÁRIA 1–3 (ordem de escolha) */
+  /** ids das 3 lendárias que nascem nas zonas LENDA 1–3 (ordem de escolha) */
   legendaryCards: Record<PlayerKey, string[]>
   updatedAt: string
 }
@@ -187,9 +190,9 @@ export interface MatchRecord extends RecordModel {
 }
 
 export const zoneLabels: Record<ZoneId, string> = {
-  legendary1: 'LENDÁRIA 1',
-  legendary2: 'LENDÁRIA 2',
-  legendary3: 'LENDÁRIA 3',
+  legendary1: 'LENDA 1',
+  legendary2: 'LENDA 2',
+  legendary3: 'LENDA 3',
   attack1: 'ZONA DE ATAQUE',
   attack2: 'ZONA DE ATAQUE',
   attack3: 'ZONA DE ATAQUE',

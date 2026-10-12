@@ -9,7 +9,7 @@ export function BoardPreview({ className = '' }: { className?: string }) {
         {[1, 2, 3].map((n) => (
           <div className="preview-zone legendary" key={n}>
             <Crown />
-            <span>LENDÁRIA {n}</span>
+            <span>LENDA {n}</span>
           </div>
         ))}
       </div>
@@ -46,13 +46,13 @@ export function BoardPreview({ className = '' }: { className?: string }) {
         </div>
       </div>
       <div className="preview-right">
-        <div className="preview-zone banishment">
-          <Sparkles />
-          <span>BANIMENTO</span>
-        </div>
         <div className="preview-zone resource">
           <Sparkles />
           <span>RECURSOS</span>
+        </div>
+        <div className="preview-zone banishment">
+          <Sparkles />
+          <span>BANIMENTO</span>
         </div>
         <div className="preview-zone resource">
           <Skull />

@@ -695,7 +695,9 @@
   .board-zone--main {
     color: #cfb134;
   }
-  .board-zone--resource,
+  .board-zone--resource {
+    color: #70bd4e;
+  }
   .board-zone--graveyard {
     color: #70bd4e;
   }
@@ -824,6 +826,48 @@
   .board-banish .zone-count {
     top: 6px;
     right: 8px;
+  }
+  /* Estilo leque para cartas na zona maior (Recursos na coluna externa) */
+  .board-card-wrap--fan {
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.45);
+  }
+  .board-card-wrap--fan:hover {
+    translate: -50% -54%;
+  }
+  /* HUD de cores na zona de Recursos */
+  .resource-color-hud {
+    position: absolute;
+    top: 6px;
+    left: 4px;
+    right: 4px;
+    z-index: 28;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 3px;
+    pointer-events: none;
+  }
+  .resource-color-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 1px 4px;
+    border-radius: 999px;
+    background: rgba(10, 7, 5, 0.88);
+    border: 1px solid var(--chip-border, rgba(201, 162, 39, 0.4));
+    font-family: Cinzel, serif;
+    font-size: 8px;
+    font-weight: 700;
+    line-height: 1;
+    color: #f5eedb;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+  }
+  .resource-color-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    border: 1px solid rgba(255, 255, 255, 0.3);
   }
   /* contadores de vida: elementos SEPARADOS e discretos, logo abaixo do personagem principal */
   .main-widgets {

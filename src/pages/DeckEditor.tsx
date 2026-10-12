@@ -60,9 +60,72 @@ export default function DeckEditorPage() {
   const filtered = cards.filter((card) =>
     card.name.toLocaleLowerCase('pt-BR').includes(query.toLocaleLowerCase('pt-BR')),
   )
-  const adjust = (cardId: string, delta: number) =>
+  const setMainCharacter = (cardId: string) => {
+    setMain(cardId)
+    // Se a carta escolhida como personagem principal estava nas lendárias, remove dela
+    if (cardId) {
+      setLegendaries((old) => old.filter((id) => id !== cardId))
+    }
+  }
+
+  const adjust = (cardId: string, delta: number) => {
+    const targetCard = map.get(cardId)
+    const cardClass = targetCard?.card_class || 'normal'
+
+    // Regra: Carta Mestre só pode existir UMA por baralho e ela É o personagem principal
+    if (delta > 0 && cardClass === 'mestre') {
+      // "ao selecionar uma carta é classe mestre. já coloca automaticamente como personagem principal do deck"
+      // Se já é o personagem principal atual:
+      if (main === cardId) {
+        toast({
+          title: 'Carta Mestre já selecionada',
+          description: `“${targetCard?.name}” já é o Personagem Principal deste baralho. Apenas 1 carta Mestre é permitida por baralho.`,
+        })
+        return
+      }
+
+      // Se havia outro personagem principal, avisa a substituição
+      const prevHero = main ? map.get(main) : null
+      setMainCharacter(cardId)
+
+      toast({
+        title: 'Personagem Principal definido',
+        description: prevHero
+          ? `“${targetCard?.name}” (Mestre) substituiu “${prevHero.name}” como Personagem Principal.`
+          : `“${targetCard?.name}” é classe Mestre e foi definida automaticamente como Personagem Principal.`,
+      })
+      return
+    }
+
     setItems((old) => {
       const current = old.find((item) => item.cardId === cardId)
+      const currentQty = current?.quantity || 0
+
+      if (delta > 0) {
+        // Regra de limites de cópias:
+        // Lenda: no máximo 1 cópia de cada
+        if (cardClass === 'lenda') {
+          if (currentQty >= 1) {
+            toast({
+              variant: 'destructive',
+              title: 'Limite de cópias atingido',
+              description: `Cartas de classe Lenda só podem ter no máximo 1 cópia no baralho (“${targetCard?.name}”).`,
+            })
+            return old
+          }
+        } else if (cardClass === 'normal') {
+          // Normal: até 4 cópias de cada
+          if (currentQty >= 4) {
+            toast({
+              variant: 'destructive',
+              title: 'Limite de cópias atingido',
+              description: `Cartas de classe Normal podem ter até 4 cópias no baralho (“${targetCard?.name}”).`,
+            })
+            return old
+          }
+        }
+      }
+
       if (!current && delta > 0) return [...old, { cardId, quantity: 1 }]
       if (!current) return old
       const next = current.quantity + delta
@@ -70,12 +133,34 @@ export default function DeckEditorPage() {
         ? old.filter((item) => item.cardId !== cardId)
         : old.map((item) => (item.cardId === cardId ? { ...item, quantity: next } : item))
     })
-  const toggleLegendary = (cardId: string) =>
+  }
+
+  const toggleLegendary = (cardId: string) => {
+    const targetCard = map.get(cardId)
+    const cardClass = targetCard?.card_class || 'normal'
+
+    if (cardClass !== 'lenda') {
+      toast({
+        variant: 'destructive',
+        title: 'Apenas cartas de classe Lenda',
+        description: `“${targetCard?.name || 'Esta carta'}” é de classe ${cardClass === 'mestre' ? 'Mestre' : 'Normal'}. Apenas cartas Lenda podem ser colocadas nas zonas Lenda.`,
+      })
+      return
+    }
+
     setLegendaries((old) => {
       if (old.includes(cardId)) return old.filter((id) => id !== cardId)
-      if (old.length >= 3) return old
+      if (old.length >= 3) {
+        toast({
+          variant: 'destructive',
+          title: 'Limite de lendárias atingido',
+          description: 'Você só pode ter até 3 cartas Lenda no tabuleiro.',
+        })
+        return old
+      }
       return [...old, cardId]
     })
+  }
   const save = async () => {
     if (!name.trim())
       return toast({ variant: 'destructive', title: 'Informe um nome para o baralho.' })
@@ -159,13 +244,28 @@ export default function DeckEditorPage() {
             </h3>
             <select
               value={main}
-              onChange={(e) => setMain(e.target.value)}
+              onChange={(e) => {
+                const chosenId = e.target.value
+                const chosen = map.get(chosenId)
+                setMainCharacter(chosenId)
+                if (chosen?.card_class === 'mestre') {
+                  toast({
+                    title: 'Personagem Principal definido',
+                    description: `“${chosen.name}” (Mestre) é o Personagem Principal do baralho.`,
+                  })
+                }
+              }}
               className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
             >
               <option value="">Escolher personagem...</option>
               {cards.map((card) => (
                 <option key={card.id} value={card.id}>
-                  {card.name}
+                  {card.name}{' '}
+                  {card.card_class === 'mestre'
+                    ? '⭐ (Mestre)'
+                    : card.card_class === 'lenda'
+                      ? '👑 (Lenda)'
+                      : ''}
                 </option>
               ))}
             </select>
@@ -179,7 +279,7 @@ export default function DeckEditorPage() {
               </span>
             </h3>
             <p className="mb-3 text-xs text-muted-foreground">
-              Cada lendária escolhida já começa em sua zona LENDÁRIA 1, 2 ou 3.
+              Cada lendária escolhida já começa em sua zona LENDA 1, 2 ou 3.
             </p>
             {legendaries.length ? (
               <div className="mb-3 flex flex-wrap gap-2">
@@ -214,10 +314,15 @@ export default function DeckEditorPage() {
             >
               <option value="">Adicionar lendária ({legendaries.length}/3)...</option>
               {cards
-                .filter((card) => !legendaries.includes(card.id) && card.id !== main)
+                .filter(
+                  (card) =>
+                    (card.card_class || 'normal') === 'lenda' &&
+                    !legendaries.includes(card.id) &&
+                    card.id !== main,
+                )
                 .map((card) => (
                   <option key={card.id} value={card.id}>
-                    {card.name}
+                    {card.name} (Lenda)
                   </option>
                 ))}
             </select>
@@ -236,7 +341,14 @@ export default function DeckEditorPage() {
                       showDetails={false}
                     />
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold">{card.name}</p>
+                      <div className="flex items-center gap-1.5">
+                        <p className="truncate text-sm font-semibold">{card.name}</p>
+                        {card.card_class === 'lenda' && (
+                          <span className="shrink-0 rounded border border-purple-500/40 bg-purple-500/20 px-1 text-[9px] font-bold text-purple-300 uppercase">
+                            Lenda (máx 1)
+                          </span>
+                        )}
+                      </div>
                       <p className="text-xs capitalize text-muted-foreground">
                         {card.card_type === 'guerreiro'
                           ? 'Personagem'
@@ -247,6 +359,9 @@ export default function DeckEditorPage() {
                             : card.card_type === 'evento'
                               ? 'Magia'
                               : card.card_type}
+                        {card.card_class === 'normal' || !card.card_class
+                          ? ' • Normal (até 4)'
+                          : ''}
                       </p>
                     </div>
                     <div className="flex items-center rounded-md border border-border">
@@ -293,6 +408,8 @@ export default function DeckEditorPage() {
             <div className="deck-collection-grid p-4">
               {filtered.map((card) => {
                 const count = items.find((item) => item.cardId === card.id)?.quantity || 0
+                const cardClass = card.card_class || 'normal'
+                const isMain = main === card.id
                 return (
                   <button
                     key={card.id}
@@ -300,7 +417,27 @@ export default function DeckEditorPage() {
                     className="group relative text-left"
                   >
                     <CardVisual card={card} />
-                    <p className="mt-2 truncate text-xs font-semibold">{card.name}</p>
+                    <div className="mt-2 flex items-center justify-between gap-1">
+                      <p className="truncate text-xs font-semibold" title={card.name}>
+                        {card.name}
+                      </p>
+                      {cardClass === 'mestre' && (
+                        <span className="shrink-0 rounded border border-amber-500/40 bg-amber-500/20 px-1 text-[9px] font-bold text-amber-300 uppercase">
+                          Mestre
+                        </span>
+                      )}
+                      {cardClass === 'lenda' && (
+                        <span className="shrink-0 rounded border border-purple-500/40 bg-purple-500/20 px-1 text-[9px] font-bold text-purple-300 uppercase">
+                          Lenda
+                        </span>
+                      )}
+                    </div>
+                    {isMain && (
+                      <span className="absolute left-1 top-1 flex items-center gap-1 rounded-full bg-amber-500/90 px-2 py-0.5 text-[10px] font-bold text-black shadow">
+                        <Crown className="h-3 w-3" />
+                        Personagem
+                      </span>
+                    )}
                     {count > 0 && (
                       <span className="absolute right-1 top-1 grid h-7 w-7 place-items-center rounded-full bg-primary font-display text-xs font-bold text-primary-foreground shadow">
                         <Check className="h-3 w-3" />

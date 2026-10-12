@@ -1,5 +1,5 @@
 import pb from '@/lib/pocketbase/client'
-import type { CardRecord, CardRarity, CardType } from '@/types/domain'
+import type { CardRecord, CardRarity, CardType, CardClass } from '@/types/domain'
 
 export async function listCards(): Promise<CardRecord[]> {
   const userId = pb.authStore.record?.id
@@ -28,6 +28,7 @@ export async function importCards(files: File[]): Promise<CardRecord[]> {
     form.set('name', file.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' '))
     form.set('card_type', 'personagem')
     form.set('rarity', 'comum')
+    form.set('card_class', 'normal')
     form.set('color', 'azul')
     form.set('is_public', 'false')
     form.set('image', file)
@@ -40,6 +41,7 @@ export interface UpdateCardInput {
   name?: string
   card_type?: CardType
   rarity?: CardRarity
+  card_class?: CardClass
   color?: string
   image?: File | null
   attack?: number
@@ -53,6 +55,7 @@ export async function updateCardDetails(id: string, data: UpdateCardInput): Prom
     if (data.name !== undefined) form.set('name', data.name)
     if (data.card_type !== undefined) form.set('card_type', data.card_type)
     if (data.rarity !== undefined) form.set('rarity', data.rarity)
+    if (data.card_class !== undefined) form.set('card_class', data.card_class)
     if (data.color !== undefined) form.set('color', data.color)
     if (data.attack !== undefined) form.set('attack', String(data.attack))
     if (data.defense !== undefined) form.set('defense', String(data.defense))
@@ -64,6 +67,7 @@ export async function updateCardDetails(id: string, data: UpdateCardInput): Prom
   if (data.name !== undefined) payload.name = data.name
   if (data.card_type !== undefined) payload.card_type = data.card_type
   if (data.rarity !== undefined) payload.rarity = data.rarity
+  if (data.card_class !== undefined) payload.card_class = data.card_class
   if (data.color !== undefined) payload.color = data.color
   if (data.attack !== undefined) payload.attack = data.attack
   if (data.defense !== undefined) payload.defense = data.defense
