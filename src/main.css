@@ -321,34 +321,51 @@
       0 7px 18px rgba(0, 0, 0, 0.5);
   }
 
-  /* Cores / Elementos customizados da carta */
-  .card-color-branco {
-    --card-accent: #e5e7eb;
-    border-color: #e5e7eb !important;
-  }
+  /* Cores oficiais PANCRATUM (9 cores simples) */
   .card-color-azul {
-    --card-accent: #3b82f6;
+    --card-accent: #2563eb;
     border-color: #3b82f6 !important;
   }
   .card-color-vermelho {
-    --card-accent: #ef4444;
+    --card-accent: #dc2626;
     border-color: #ef4444 !important;
   }
+  .card-color-amarelo {
+    --card-accent: #eab308;
+    border-color: #facc15 !important;
+  }
   .card-color-verde {
-    --card-accent: #22c55e;
+    --card-accent: #16a34a;
     border-color: #22c55e !important;
   }
-  .card-color-preto {
-    --card-accent: #374151;
-    border-color: #4b5563 !important;
-  }
-  .card-color-dourado {
-    --card-accent: #eab308;
-    border-color: #eab308 !important;
+  .card-color-laranja {
+    --card-accent: #ea580c;
+    border-color: #f97316 !important;
   }
   .card-color-roxo {
-    --card-accent: #a855f7;
+    --card-accent: #9333ea;
     border-color: #a855f7 !important;
+  }
+  .card-color-branco {
+    --card-accent: #f3f4f6;
+    border-color: #ffffff !important;
+  }
+  .card-color-preto {
+    --card-accent: #1f2937;
+    border-color: #374151 !important;
+  }
+  .card-color-cinza {
+    --card-accent: #6b7280;
+    border-color: #9ca3af !important;
+  }
+  /* Compatibilidade com nomes legados */
+  .card-color-dourado {
+    --card-accent: #eab308;
+    border-color: #facc15 !important;
+  }
+  .card-color-neutro {
+    --card-accent: #6b7280;
+    border-color: #9ca3af !important;
   }
   /* placeholder de carta sem arte — evoca a moldura PANCRATUM (azul/dourado dark fantasy) */
   .generated-card {

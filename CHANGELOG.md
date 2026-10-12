@@ -1,5 +1,18 @@
 # Changelog — Simulador PANCRATUM
 
+## 0.0.9
+
+- **Correção da lista oficial de Tipos de Carta**:
+  - Atualizada a lista de tipos em todo o sistema para os 5 tipos oficiais do PANCRATUM: `Personagem`, `Criatura`, `Magia`, `Armadilha` e `Equipamento`.
+  - Atualizados filtros e dropdowns no editor e na visualização da Biblioteca.
+  - Criada a migration `0009_update_card_types_and_remove_seed_cards.js` para atualizar o schema do banco (select `card_type`) e migrar registros legados de forma transparente.
+- **Correção da lista de Cores da Carta**:
+  - Atualizada a lista para as 9 cores simples oficiais na ordem exata: `Azul`, `Vermelho`, `Amarelo`, `Verde`, `Laranja`, `Roxo`, `Branco`, `Preto` e `Cinza`.
+  - Definidas novas classes e variáveis CSS de identidade visual no `CardVisual` e `main.css` para Laranja e Cinza, com suporte retrocompatível e conversão segura para cartas existentes com valores antigos (`dourado`, `neutro`).
+- **Remoção de cartas oficiais de demonstração**:
+  - Removido o acervo embutido/demonstração de cartas oficiais da Biblioteca: a biblioteca agora exibe exclusivamente o acervo pessoal do usuário.
+  - A migration `0009` removeu do banco as cartas de seed do sistema antigo e o baralho modelo, preservando integralmente as cartas e baralhos criados pelos usuários reais.
+
 ## 0.0.8
 
 - **Edição completa de cartas na Biblioteca**:

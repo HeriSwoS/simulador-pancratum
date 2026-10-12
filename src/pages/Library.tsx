@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Edit3, ImagePlus, LoaderCircle, Maximize2, Search, Trash2, Upload } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
-import { CardVisual } from '@/components/CardVisual'
-import { Badge } from '@/components/ui/badge'
+import { CardVisual, normalizeCardColor } from '@/components/CardVisual'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -35,12 +34,13 @@ import pb from '@/lib/pocketbase/client'
 
 const typeOptions: { value: CardType | 'todos'; label: string }[] = [
   { value: 'todos', label: 'Todos os tipos' },
-  { value: 'guerreiro', label: 'Guerreiro' },
-  { value: 'arma', label: 'Arma' },
-  { value: 'armadura', label: 'Armadura' },
-  { value: 'evento', label: 'Evento' },
-  { value: 'reliquia', label: 'Relíquia' },
+  { value: 'personagem', label: 'Personagem' },
+  { value: 'criatura', label: 'Criatura' },
+  { value: 'magia', label: 'Magia' },
+  { value: 'armadilha', label: 'Armadilha' },
+  { value: 'equipamento', label: 'Equipamento' },
 ]
+
 const rarityOptions: { value: CardRarity | 'todas'; label: string }[] = [
   { value: 'todas', label: 'Todas as raridades' },
   { value: 'comum', label: 'Comum' },
@@ -51,15 +51,45 @@ const rarityOptions: { value: CardRarity | 'todas'; label: string }[] = [
 ]
 
 export const colorOptions = [
-  { value: 'neutro', label: 'Neutro / Padrão', colorHex: '#8a7a63' },
-  { value: 'branco', label: 'Branco (Luz)', colorHex: '#e5e7eb' },
-  { value: 'azul', label: 'Azul (Água / Mente)', colorHex: '#3b82f6' },
-  { value: 'vermelho', label: 'Vermelho (Fogo / Força)', colorHex: '#ef4444' },
-  { value: 'verde', label: 'Verde (Terra / Vida)', colorHex: '#22c55e' },
-  { value: 'preto', label: 'Preto (Trevas / Morte)', colorHex: '#374151' },
-  { value: 'dourado', label: 'Dourado (Divino / Épico)', colorHex: '#eab308' },
-  { value: 'roxo', label: 'Roxo (Arcano / Caos)', colorHex: '#a855f7' },
+  { value: 'azul', label: 'Azul', colorHex: '#2563eb' },
+  { value: 'vermelho', label: 'Vermelho', colorHex: '#dc2626' },
+  { value: 'amarelo', label: 'Amarelo', colorHex: '#eab308' },
+  { value: 'verde', label: 'Verde', colorHex: '#16a34a' },
+  { value: 'laranja', label: 'Laranja', colorHex: '#ea580c' },
+  { value: 'roxo', label: 'Roxo', colorHex: '#9333ea' },
+  { value: 'branco', label: 'Branco', colorHex: '#f3f4f6' },
+  { value: 'preto', label: 'Preto', colorHex: '#1f2937' },
+  { value: 'cinza', label: 'Cinza', colorHex: '#6b7280' },
 ]
+
+const colorDisplayNames: Record<string, string> = {
+  azul: 'Azul',
+  vermelho: 'Vermelho',
+  amarelo: 'Amarelo',
+  verde: 'Verde',
+  laranja: 'Laranja',
+  roxo: 'Roxo',
+  branco: 'Branco',
+  preto: 'Preto',
+  cinza: 'Cinza',
+  // Legados
+  dourado: 'Amarelo',
+  neutro: 'Cinza',
+}
+
+const typeDisplayNames: Record<string, string> = {
+  personagem: 'Personagem',
+  criatura: 'Criatura',
+  magia: 'Magia',
+  armadilha: 'Armadilha',
+  equipamento: 'Equipamento',
+  // Legados
+  guerreiro: 'Personagem',
+  arma: 'Equipamento',
+  armadura: 'Equipamento',
+  evento: 'Magia',
+  reliquia: 'Equipamento',
+}
 
 export default function LibraryPage() {
   const [cards, setCards] = useState<CardRecord[]>([])
@@ -98,12 +128,16 @@ export default function LibraryPage() {
   }, [params, setParams])
   const filtered = useMemo(
     () =>
-      cards.filter(
-        (card) =>
+      cards.filter((card) => {
+        const cardTypeNorm = typeDisplayNames[card.card_type]?.toLowerCase() || card.card_type
+        const selectedTypeNorm =
+          type === 'todos' ? 'todos' : typeDisplayNames[type]?.toLowerCase() || type
+        return (
           card.name.toLocaleLowerCase('pt-BR').includes(query.toLocaleLowerCase('pt-BR')) &&
-          (type === 'todos' || card.card_type === type) &&
-          (rarity === 'todas' || card.rarity === rarity),
-      ),
+          (type === 'todos' || card.card_type === type || cardTypeNorm === selectedTypeNorm) &&
+          (rarity === 'todas' || card.rarity === rarity)
+        )
+      }),
     [cards, query, type, rarity],
   )
   const upload = async (files: FileList | null) => {
@@ -138,7 +172,7 @@ export default function LibraryPage() {
     }
   }
   const remove = async (card: CardRecord) => {
-    if (card.is_public || card.owner !== pb.authStore.record?.id) return
+    if (card.owner && card.owner !== pb.authStore.record?.id) return
     if (!window.confirm(`Excluir “${card.name}” da biblioteca?`)) return
     try {
       await deleteCard(card.id)
@@ -245,7 +279,9 @@ export default function LibraryPage() {
       ) : filtered.length ? (
         <div className="card-library-grid">
           {filtered.map((card) => {
-            const isOwner = !card.is_public && card.owner === pb.authStore.record?.id
+            const isOwner = !card.owner || card.owner === pb.authStore.record?.id
+            const displayType = typeDisplayNames[card.card_type] || card.card_type
+            const displayColor = card.color ? colorDisplayNames[card.color] || card.color : null
             return (
               <div
                 key={card.id}
@@ -262,9 +298,9 @@ export default function LibraryPage() {
                     >
                       {card.name}
                     </h3>
-                    <p className="mt-0.5 text-xs capitalize text-muted-foreground">
-                      {card.card_type} • {card.rarity}
-                      {card.color && card.color !== 'neutro' && ` • ${card.color}`}
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      {displayType} • <span className="capitalize">{card.rarity}</span>
+                      {displayColor && ` • ${displayColor}`}
                     </p>
                   </div>
                   <div className="flex shrink-0 items-center gap-1">
@@ -341,9 +377,9 @@ function CardDetails({
   onSave: (card: CardRecord, patch: UpdateCardInput) => Promise<void>
 }) {
   const [name, setName] = useState('')
-  const [type, setType] = useState<CardType>('evento')
+  const [type, setType] = useState<CardType>('personagem')
   const [rarity, setRarity] = useState<CardRarity>('comum')
-  const [color, setColor] = useState('neutro')
+  const [color, setColor] = useState('azul')
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string>('')
   const [saving, setSaving] = useState(false)
@@ -352,15 +388,20 @@ function CardDetails({
   useEffect(() => {
     if (card) {
       setName(card.name)
-      setType(card.card_type)
+      const mappedType = (
+        card.card_type in typeDisplayNames
+          ? typeDisplayNames[card.card_type].toLowerCase()
+          : card.card_type
+      ) as CardType
+      setType(mappedType || 'personagem')
       setRarity(card.rarity)
-      setColor(card.color || 'neutro')
+      setColor(normalizeCardColor(card.color) || 'azul')
       setImageFile(null)
       setImagePreview('')
     }
   }, [card])
 
-  const editable = card && !card.is_public && card.owner === pb.authStore.record?.id
+  const editable = Boolean(card && (!card.owner || card.owner === pb.authStore.record?.id))
 
   const handleImageChange = (file?: File) => {
     if (!file) return
@@ -401,11 +442,9 @@ function CardDetails({
     <Dialog open={Boolean(card)} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{editable ? 'Editar carta' : 'Detalhes da carta'}</DialogTitle>
+          <DialogTitle>Editar carta</DialogTitle>
           <DialogDescription>
-            {editable
-              ? 'Edite a imagem da frente, nome, tipo, raridade e a cor/elemento da carta.'
-              : 'Veja a arte em tamanho maior e consulte as informações da carta oficial.'}
+            Edite a imagem da frente, nome, tipo, raridade e a cor da carta.
           </DialogDescription>
         </DialogHeader>
         {card && previewCard && (
@@ -413,27 +452,32 @@ function CardDetails({
             <div className="flex flex-col items-center gap-3">
               <div className="relative w-full max-w-[240px]">
                 {imagePreview ? (
-                  <article
-                    className={cn(
-                      'tcg-card group/card',
-                      `rarity-${rarity}`,
-                      color && color !== 'neutro' && `card-color-${color}`,
-                      'mx-auto w-full max-w-[240px]',
-                    )}
-                    title={name}
-                  >
-                    <img
-                      src={imagePreview}
-                      alt={name}
-                      className="absolute inset-0 h-full w-full rounded-[7px] object-cover"
-                    />
-                    {color && color !== 'neutro' && (
-                      <div
-                        className="pointer-events-none absolute inset-x-0 bottom-0 h-1.5 opacity-90"
-                        style={{ backgroundColor: 'var(--card-accent)' }}
-                      />
-                    )}
-                  </article>
+                  (() => {
+                    const normPreviewColor = normalizeCardColor(color)
+                    return (
+                      <article
+                        className={cn(
+                          'tcg-card group/card',
+                          `rarity-${rarity}`,
+                          normPreviewColor && `card-color-${normPreviewColor}`,
+                          'mx-auto w-full max-w-[240px]',
+                        )}
+                        title={name}
+                      >
+                        <img
+                          src={imagePreview}
+                          alt={name}
+                          className="absolute inset-0 h-full w-full rounded-[7px] object-cover"
+                        />
+                        {normPreviewColor && (
+                          <div
+                            className="pointer-events-none absolute inset-x-0 bottom-0 h-1.5 opacity-90"
+                            style={{ backgroundColor: 'var(--card-accent)' }}
+                          />
+                        )}
+                      </article>
+                    )
+                  })()
                 ) : (
                   <CardVisual card={previewCard} className="mx-auto w-full max-w-[240px]" />
                 )}
@@ -477,7 +521,7 @@ function CardDetails({
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   disabled={!editable}
-                  placeholder="Ex: Guerreiro de Bronze"
+                  placeholder="Ex: Guerreiro Ancestral"
                 />
               </div>
 
@@ -524,7 +568,7 @@ function CardDetails({
               </div>
 
               <div>
-                <Label>Cor / Elemento da carta</Label>
+                <Label>Cor da carta</Label>
                 <Select value={color} onValueChange={(v) => setColor(v)} disabled={!editable}>
                   <SelectTrigger className="mt-2">
                     <SelectValue />
@@ -544,7 +588,7 @@ function CardDetails({
                   </SelectContent>
                 </Select>
                 <p className="mt-1 text-[11px] text-muted-foreground">
-                  A cor define o elemento e aplica destaque colorido na moldura e detalhe da carta.
+                  A cor aplica o destaque colorido na moldura e detalhe da carta.
                 </p>
               </div>
 
@@ -558,24 +602,22 @@ function CardDetails({
               )}
 
               <div className="flex flex-wrap gap-2 pt-2">
-                {editable ? (
-                  <>
-                    <Button
-                      className="gold-button"
-                      onClick={() => void handleSave()}
-                      disabled={saving}
-                    >
-                      {saving ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : null}
-                      Salvar alterações
-                    </Button>
-                    <Button variant="destructive" onClick={() => onDelete(card)} disabled={saving}>
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      Excluir
-                    </Button>
-                  </>
-                ) : (
-                  <Badge variant="outline">Carta oficial do acervo</Badge>
-                )}
+                <Button
+                  className="gold-button"
+                  onClick={() => void handleSave()}
+                  disabled={saving || !editable}
+                >
+                  {saving ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  Salvar alterações
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={() => onDelete(card)}
+                  disabled={saving || !editable}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Excluir
+                </Button>
               </div>
             </div>
           </div>

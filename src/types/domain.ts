@@ -1,17 +1,33 @@
 import type { RecordModel } from 'pocketbase'
 
-export type CardType = 'guerreiro' | 'arma' | 'armadura' | 'evento' | 'reliquia'
+export type CardType =
+  | 'personagem'
+  | 'criatura'
+  | 'magia'
+  | 'armadilha'
+  | 'equipamento'
+  // compatibilidade com registros/tipos legados
+  | 'guerreiro'
+  | 'arma'
+  | 'armadura'
+  | 'evento'
+  | 'reliquia'
+
 export type CardRarity = 'comum' | 'incomum' | 'rara' | 'epica' | 'lendaria'
 
 export type CardColor =
-  | 'neutro'
-  | 'branco'
   | 'azul'
   | 'vermelho'
+  | 'amarelo'
   | 'verde'
-  | 'preto'
-  | 'dourado'
+  | 'laranja'
   | 'roxo'
+  | 'branco'
+  | 'preto'
+  | 'cinza'
+  // compatibilidade com valores legados
+  | 'neutro'
+  | 'dourado'
 
 export interface CardRecord extends RecordModel {
   owner: string

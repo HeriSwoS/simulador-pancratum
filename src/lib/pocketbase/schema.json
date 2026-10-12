@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-12T15:25:18.509Z",
+  "generatedAt": "2026-10-12T15:38:39.969Z",
   "collections": [
     {
       "name": "users",
@@ -79,7 +79,7 @@
           "type": "select",
           "required": true,
           "system": false,
-          "selectValues": ["guerreiro", "arma", "armadura", "evento", "reliquia"]
+          "selectValues": ["personagem", "criatura", "magia", "armadilha", "equipamento"]
         },
         {
           "name": "rarity",

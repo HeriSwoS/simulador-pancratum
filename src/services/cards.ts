@@ -2,6 +2,14 @@ import pb from '@/lib/pocketbase/client'
 import type { CardRecord, CardRarity, CardType } from '@/types/domain'
 
 export async function listCards(): Promise<CardRecord[]> {
+  const userId = pb.authStore.record?.id
+  // Garante retorno do acervo pessoal do usuário logado
+  if (userId) {
+    return pb.collection<CardRecord>('cards').getFullList({
+      filter: `owner = '${userId}'`,
+      sort: '-created,name',
+    })
+  }
   return pb.collection<CardRecord>('cards').getFullList({ sort: '-created,name' })
 }
 
@@ -18,8 +26,9 @@ export async function importCards(files: File[]): Promise<CardRecord[]> {
     const form = new FormData()
     form.set('owner', owner)
     form.set('name', file.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' '))
-    form.set('card_type', 'evento')
+    form.set('card_type', 'personagem')
     form.set('rarity', 'comum')
+    form.set('color', 'azul')
     form.set('is_public', 'false')
     form.set('image', file)
     created.push(await pb.collection<CardRecord>('cards').create(form))

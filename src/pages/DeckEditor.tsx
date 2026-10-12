@@ -237,7 +237,17 @@ export default function DeckEditorPage() {
                     />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-semibold">{card.name}</p>
-                      <p className="text-xs capitalize text-muted-foreground">{card.card_type}</p>
+                      <p className="text-xs capitalize text-muted-foreground">
+                        {card.card_type === 'guerreiro'
+                          ? 'Personagem'
+                          : card.card_type === 'arma' ||
+                              card.card_type === 'armadura' ||
+                              card.card_type === 'reliquia'
+                            ? 'Equipamento'
+                            : card.card_type === 'evento'
+                              ? 'Magia'
+                              : card.card_type}
+                      </p>
                     </div>
                     <div className="flex items-center rounded-md border border-border">
                       <button
