@@ -772,7 +772,7 @@
     top: 6px;
     right: 8px;
   }
-  /* d20 + contador: elementos SEPARADOS e discretos, logo abaixo do personagem principal */
+  /* contadores de vida: elementos SEPARADOS e discretos, logo abaixo do personagem principal */
   .main-widgets {
     position: absolute;
     left: 4%;
@@ -816,16 +816,14 @@
     width: 10px;
     height: 10px;
   }
-  .widget-d20 {
-    cursor: pointer;
-  }
-  .widget-d20:hover {
-    box-shadow: 0 0 8px rgba(231, 200, 90, 0.4);
-  }
-  .widget-d20 .d20-glyph {
-    width: 13px;
-    height: 12px;
-    fill: rgba(24, 16, 10, 0.75);
+  .widget-label {
+    font-family: Cinzel, serif;
+    font-size: 7px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: #c9a94e;
+    padding-left: 2px;
+    white-space: nowrap;
   }
   .widget-value {
     min-width: 10px;
@@ -836,40 +834,8 @@
     line-height: 1;
     text-shadow: 0 1px 2px #000;
   }
-  .d20-glyph--rolling {
-    animation: d20-roll 0.42s ease;
-    transform-origin: 50% 50%;
-  }
-  .d20-shape {
-    fill: rgba(28, 18, 10, 0.6);
-    stroke: #e7c85a;
-    stroke-width: 3;
-  }
-  .d20-face {
-    fill: rgba(201, 162, 39, 0.12);
-    stroke: rgba(231, 200, 90, 0.75);
-    stroke-width: 2;
-  }
-  .d20-edge {
-    stroke: rgba(231, 200, 90, 0.6);
-    stroke-width: 2;
-  }
   .board-banish {
     position: relative;
-  }
-  @keyframes d20-roll {
-    0% {
-      transform: rotate(0);
-    }
-    40% {
-      transform: rotate(-14deg) scale(1.08);
-    }
-    70% {
-      transform: rotate(10deg) scale(0.96);
-    }
-    100% {
-      transform: rotate(0);
-    }
   }
   .zone-label--top {
     top: 3.5%;

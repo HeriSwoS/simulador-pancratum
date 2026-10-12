@@ -25,6 +25,8 @@ import {
   type PlayerKey,
 } from '@/types/domain'
 
+const legendaryZoneIds = ['legendary1', 'legendary2', 'legendary3'] as const
+
 function uid() {
   return crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`
 }
@@ -36,6 +38,20 @@ function shuffled<T>(items: T[]) {
   }
   return result
 }
+/** carta pré-posicionada, centralizada e virada para cima (personagem/lendárias) */
+function placedInstance(cardId: string, owner: PlayerKey): CardInstance {
+  return {
+    uid: uid(),
+    cardId,
+    owner,
+    faceUp: true,
+    rotation: 0,
+    x: 50,
+    y: 50,
+    z: 0,
+  }
+}
+
 function makeSnapshot(deck: DeckRecord): MatchSnapshot {
   const build = (owner: PlayerKey) =>
     shuffled(
@@ -53,43 +69,34 @@ function makeSnapshot(deck: DeckRecord): MatchSnapshot {
   const playerDeck = build('player')
   const opponentDeck = build('opponent')
   const mainId = deck.main_character || ''
-  const playerZones = emptyZones()
-  const opponentZones = emptyZones()
-  if (mainId) {
-    playerZones.main.push({
-      uid: uid(),
-      cardId: mainId,
-      owner: 'player',
-      faceUp: true,
-      rotation: 0,
-      x: 0,
-      y: 0,
-      z: 0,
+  const legendaries = Array.isArray(deck.legendary_cards) ? deck.legendary_cards.slice(0, 3) : []
+  const buildZones = (owner: PlayerKey) => {
+    const zones = emptyZones()
+    if (mainId) {
+      zones.main.push(placedInstance(mainId, owner))
+    }
+    legendaries.forEach((cardId, index) => {
+      const zone = legendaryZoneIds[index]
+      if (zone) zones[zone].push(placedInstance(cardId, owner))
     })
-    opponentZones.main.push({
-      uid: uid(),
-      cardId: mainId,
-      owner: 'opponent',
-      faceUp: true,
-      rotation: 0,
-      x: 0,
-      y: 0,
-      z: 0,
-    })
+    return zones
   }
   return {
-    version: 2,
+    version: 3,
     players: {
-      player: { deck: playerDeck, hand: [], zones: playerZones },
-      opponent: { deck: opponentDeck, hand: [], zones: opponentZones },
+      player: { deck: playerDeck, hand: [], zones: buildZones('player') },
+      opponent: { deck: opponentDeck, hand: [], zones: buildZones('opponent') },
     },
     initialDecks: {
+      // o baralho embaralhado contém SÓ as cartas de quantidade — personagem e
+      // lendárias ficam fora, pois já nascem no tabuleiro
       player: playerDeck.map((c) => c.cardId),
       opponent: opponentDeck.map((c) => c.cardId),
     },
     mainCharacters: { player: mainId, opponent: mainId },
-    d20: { player: 0, opponent: 0 },
-    counter: { player: 0, opponent: 0 },
+    playerLife: { player: 0, opponent: 0 },
+    characterLife: { player: 0, opponent: 0 },
+    legendaryCards: { player: legendaries, opponent: legendaries },
     updatedAt: new Date().toISOString(),
   }
 }
@@ -241,7 +248,9 @@ export default function PlayLobbyPage() {
                           <p className="truncate font-semibold">{deck.name}</p>
                           <p className="text-xs text-muted-foreground">
                             {total} cartas •{' '}
-                            {deck.main_character ? 'personagem definido' : 'sem personagem'}
+                            {deck.main_character ? 'personagem definido' : 'sem personagem'} •{' '}
+                            {Array.isArray(deck.legendary_cards) ? deck.legendary_cards.length : 0}
+                            /3 lendárias
                           </p>
                         </div>
                       </button>

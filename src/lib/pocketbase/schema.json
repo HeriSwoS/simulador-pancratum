@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-12T14:14:29.843Z",
+  "generatedAt": "2026-10-12T14:54:29.429Z",
   "collections": [
     {
       "name": "users",
@@ -189,6 +189,13 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "legendary_cards",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "cards"
         }
       ],
       "indexes": ["CREATE INDEX idx_decks_owner ON decks (owner)"]

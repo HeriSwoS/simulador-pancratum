@@ -25,6 +25,8 @@ export interface DeckRecord extends RecordModel {
   name: string
   items: DeckItem[]
   main_character: string
+  /** até 3 cartas lendárias, guardadas na ordem em que foram escolhidas */
+  legendary_cards: string[]
   created: string
   updated: string
 }
@@ -76,24 +78,53 @@ export interface MatchSnapshot {
   players: Record<PlayerKey, PlayerState>
   initialDecks: Record<PlayerKey, string[]>
   mainCharacters: Record<PlayerKey, string>
-  /** resultado rolado no d20 (0–9) de cada lado, persistido junto do snapshot */
-  d20: Record<PlayerKey, number>
-  /** contador numérico manual (0–9) de cada lado, independente do d20 */
-  counter: Record<PlayerKey, number>
+  /** vida do JOGADOR de cada lado, nos contadores abaixo da zona principal */
+  playerLife: Record<PlayerKey, number>
+  /** vida do PERSONAGEM PRINCIPAL de cada lado, independente da vida do jogador */
+  characterLife: Record<PlayerKey, number>
+  /** ids das 3 lendárias que nascem nas zonas LENDÁRIA 1–3 (ordem de escolha) */
+  legendaryCards: Record<PlayerKey, string[]>
   updatedAt: string
+}
+
+/** Campos de snapshots antigos (v2) que não existem mais. */
+type LegacySnapshotFields = Partial<MatchSnapshot> & {
+  d20?: Record<PlayerKey, number>
+  counter?: Record<PlayerKey, number>
+}
+
+function coerceLife(...values: unknown[]): number {
+  for (const value of values) {
+    if (typeof value === 'number' && Number.isFinite(value)) return value
+  }
+  return 0
 }
 
 /** Preenche campos novos com valores padrão para snapshots salvos antes deles existirem. */
 export function normalizeSnapshot(snapshot: MatchSnapshot): MatchSnapshot {
+  const legacy = snapshot as LegacySnapshotFields
   const normalizePlayer = (player: PlayerState): PlayerState => ({
     ...player,
     zones: { ...emptyZones(), ...player.zones },
   })
+  const legendaries = (key: PlayerKey): string[] => {
+    const value = legacy.legendaryCards?.[key]
+    return Array.isArray(value) ? value.filter((id) => typeof id === 'string').slice(0, 3) : []
+  }
   return {
     ...snapshot,
-    version: 2,
-    d20: snapshot.d20 ?? { player: 0, opponent: 0 },
-    counter: snapshot.counter ?? { player: 0, opponent: 0 },
+    version: 3,
+    // migração suave: `counter` virou a vida do JOGADOR e `d20` virou a vida do
+    // PERSONAGEM PRINCIPAL (mesma ordem dos widgets antigos)
+    playerLife: {
+      player: coerceLife(legacy.playerLife?.player, legacy.counter?.player),
+      opponent: coerceLife(legacy.playerLife?.opponent, legacy.counter?.opponent),
+    },
+    characterLife: {
+      player: coerceLife(legacy.characterLife?.player, legacy.d20?.player),
+      opponent: coerceLife(legacy.characterLife?.opponent, legacy.d20?.opponent),
+    },
+    legendaryCards: { player: legendaries('player'), opponent: legendaries('opponent') },
     players: {
       player: normalizePlayer(snapshot.players.player),
       opponent: normalizePlayer(snapshot.players.opponent),

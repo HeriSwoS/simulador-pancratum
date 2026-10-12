@@ -1,5 +1,16 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ArrowLeft, Check, Crown, LoaderCircle, Minus, Plus, Save, Search } from 'lucide-react'
+import {
+  ArrowLeft,
+  Check,
+  Crown,
+  Gem,
+  LoaderCircle,
+  Minus,
+  Plus,
+  Save,
+  Search,
+  X,
+} from 'lucide-react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { CardVisual } from '@/components/CardVisual'
 import { Button } from '@/components/ui/button'
@@ -18,6 +29,7 @@ export default function DeckEditorPage() {
   const [name, setName] = useState('')
   const [items, setItems] = useState<DeckItem[]>([])
   const [main, setMain] = useState('')
+  const [legendaries, setLegendaries] = useState<string[]>([])
   const [query, setQuery] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -27,6 +39,7 @@ export default function DeckEditorPage() {
         setName(deck.name)
         setItems(Array.isArray(deck.items) ? deck.items : [])
         setMain(deck.main_character || '')
+        setLegendaries(Array.isArray(deck.legendary_cards) ? deck.legendary_cards.slice(0, 3) : [])
         setCards(all)
       })
       .catch((error) => {
@@ -57,12 +70,23 @@ export default function DeckEditorPage() {
         ? old.filter((item) => item.cardId !== cardId)
         : old.map((item) => (item.cardId === cardId ? { ...item, quantity: next } : item))
     })
+  const toggleLegendary = (cardId: string) =>
+    setLegendaries((old) => {
+      if (old.includes(cardId)) return old.filter((id) => id !== cardId)
+      if (old.length >= 3) return old
+      return [...old, cardId]
+    })
   const save = async () => {
     if (!name.trim())
       return toast({ variant: 'destructive', title: 'Informe um nome para o baralho.' })
     setSaving(true)
     try {
-      await saveDeck(id, { name: name.trim(), items, main_character: main })
+      await saveDeck(id, {
+        name: name.trim(),
+        items,
+        main_character: main,
+        legendary_cards: legendaries,
+      })
       toast({ title: 'Baralho salvo', description: `${total} cartas no baralho principal.` })
     } catch (error) {
       toast({
@@ -103,7 +127,9 @@ export default function DeckEditorPage() {
             className={`rounded-lg border px-4 py-2 text-center ${total === 50 ? 'border-emerald-500/40 text-emerald-400' : 'border-primary/25 text-primary'}`}
           >
             <strong className="font-display text-xl">{total}</strong>
-            <span className="ml-1 text-xs text-muted-foreground">/ 50 cartas</span>
+            <span className="ml-1 text-xs text-muted-foreground">
+              / 50 cartas + 1 personagem + 3 lendárias
+            </span>
           </div>
           <Button className="gold-button" onClick={save} disabled={saving}>
             {saving ? (
@@ -117,7 +143,8 @@ export default function DeckEditorPage() {
       </div>
       <div className="mb-4 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm text-muted-foreground">
         <strong className="text-primary">Estrutura oficial:</strong> 50 cartas no baralho principal
-        + 1 personagem principal separado. Para testes, qualquer quantidade é permitida.
+        + 1 personagem principal separado + 3 lendárias que já começam no tabuleiro. Para testes,
+        qualquer configuração é permitida.
       </div>
       <div className="deck-editor-grid">
         <section className="arcane-panel overflow-hidden">
@@ -141,6 +168,58 @@ export default function DeckEditorPage() {
                   {card.name}
                 </option>
               ))}
+            </select>
+          </div>
+          <div className="border-b border-border bg-primary/5 p-4">
+            <h3 className="mb-1 flex items-center gap-2 text-sm font-semibold text-primary">
+              <Gem className="h-4 w-4" />
+              Lendárias no tabuleiro
+              <span className="ml-auto font-normal text-xs text-muted-foreground">
+                {legendaries.length}/3
+              </span>
+            </h3>
+            <p className="mb-3 text-xs text-muted-foreground">
+              Cada lendária escolhida já começa em sua zona LENDÁRIA 1, 2 ou 3.
+            </p>
+            {legendaries.length ? (
+              <div className="mb-3 flex flex-wrap gap-2">
+                {legendaries.map((cardId, index) => {
+                  const card = map.get(cardId)
+                  return (
+                    <span
+                      key={cardId}
+                      className="flex items-center gap-1 rounded-full border border-primary/40 bg-background/60 py-1 pl-1 pr-2 text-xs"
+                    >
+                      <span className="grid h-5 w-5 place-items-center rounded-full bg-primary/20 font-display text-[10px] font-bold text-primary">
+                        {index + 1}
+                      </span>
+                      <span className="max-w-[140px] truncate">{card?.name || 'Carta'}</span>
+                      <button
+                        type="button"
+                        aria-label={`Remover ${card?.name || 'lendária'}`}
+                        onClick={() => toggleLegendary(cardId)}
+                        className="text-muted-foreground hover:text-destructive"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </span>
+                  )
+                })}
+              </div>
+            ) : null}
+            <select
+              value=""
+              onChange={(e) => e.target.value && toggleLegendary(e.target.value)}
+              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+            >
+              <option value="">Adicionar lendária ({legendaries.length}/3)...</option>
+              {cards
+                .filter((card) => !legendaries.includes(card.id) && card.id !== main)
+                .map((card) => (
+                  <option key={card.id} value={card.id}>
+                    {card.name}
+                  </option>
+                ))}
             </select>
           </div>
           <ScrollArea className="h-[650px]">

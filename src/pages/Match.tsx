@@ -57,7 +57,6 @@ import {
   type MatchRecord,
   type MatchSnapshot,
   type PlayerKey,
-  type Rotation,
   type ZoneId,
 } from '@/types/domain'
 
@@ -148,6 +147,19 @@ function zoneKind(id: ZoneId): ZoneKind {
   if (id === 'graveyard') return 'graveyard'
   return 'banishment'
 }
+/** carta nascida no tabuleiro: centralizada na zona e virada para cima */
+function placedInstance(cardId: string, owner: PlayerKey): CardInstance {
+  return {
+    uid: randomUid(),
+    cardId,
+    owner,
+    faceUp: true,
+    rotation: 0,
+    x: 50,
+    y: 50,
+    z: 0,
+  }
+}
 function createResetSnapshot(current: MatchSnapshot): MatchSnapshot {
   const build = (player: PlayerKey) =>
     shuffle(current.initialDecks[player]).map<CardInstance>((cardId, index) => ({
@@ -162,33 +174,27 @@ function createResetSnapshot(current: MatchSnapshot): MatchSnapshot {
     }))
   const playerDeck = build('player')
   const opponentDeck = build('opponent')
-  const playerZones = emptyZones()
-  const opponentZones = emptyZones()
-  const addMain = (player: PlayerKey, zones: ReturnType<typeof emptyZones>) => {
-    const cardId = current.mainCharacters[player]
-    if (cardId)
-      zones.main.push({
-        uid: randomUid(),
-        cardId,
-        owner: player,
-        faceUp: true,
-        rotation: 0,
-        x: 0,
-        y: 0,
-        z: 0,
-      })
+  const buildZones = (player: PlayerKey) => {
+    const zones = emptyZones()
+    const mainId = current.mainCharacters[player]
+    if (mainId) zones.main.push(placedInstance(mainId, player))
+    const legendaries = current.legendaryCards?.[player] ?? []
+    legendaries.slice(0, 3).forEach((cardId, index) => {
+      const zone = legendaryZones[index]
+      if (zone && cardId) zones[zone].push(placedInstance(cardId, player))
+    })
+    return zones
   }
-  addMain('player', playerZones)
-  addMain('opponent', opponentZones)
   return {
     ...current,
     players: {
-      player: { deck: playerDeck, hand: [], zones: playerZones },
-      opponent: { deck: opponentDeck, hand: [], zones: opponentZones },
+      player: { deck: playerDeck, hand: [], zones: buildZones('player') },
+      opponent: { deck: opponentDeck, hand: [], zones: buildZones('opponent') },
     },
-    d20: current.d20 ?? { player: 0, opponent: 0 },
-    counter: current.counter ?? { player: 0, opponent: 0 },
-    version: 2,
+    playerLife: current.playerLife ?? { player: 0, opponent: 0 },
+    characterLife: current.characterLife ?? { player: 0, opponent: 0 },
+    legendaryCards: current.legendaryCards ?? { player: [], opponent: [] },
+    version: 3,
     updatedAt: new Date().toISOString(),
   }
 }
@@ -342,7 +348,8 @@ export default function MatchPage() {
       takeCard(draft, locator)
     })
   const handleCardClick = (locator: Locator) => {
-    if (locator.zone === 'resources') {
+    // girar por clique: qualquer carta no tabuleiro alterna em pé ↔ deitada (90°)
+    if (locator.area === 'zone') {
       alterCard(locator, (card) => {
         card.rotation = card.rotation === 90 ? 0 : 90
       })
@@ -407,17 +414,17 @@ export default function MatchPage() {
       y: Math.min(event.clientY, window.innerHeight - 430),
     })
   }
-  const setD20 = (player: PlayerKey, value: number) =>
+  const setPlayerLife = (player: PlayerKey, value: number) =>
     update((draft) => {
-      const next: Record<PlayerKey, number> = { ...draft.d20 }
-      next[player] = Math.max(0, Math.min(9, value))
-      draft.d20 = next
+      const next: Record<PlayerKey, number> = { ...draft.playerLife }
+      next[player] = Math.max(0, value)
+      draft.playerLife = next
     })
-  const setCounter = (player: PlayerKey, value: number) =>
+  const setCharacterLife = (player: PlayerKey, value: number) =>
     update((draft) => {
-      const next: Record<PlayerKey, number> = { ...draft.counter }
-      next[player] = Math.max(0, Math.min(9, value))
-      draft.counter = next
+      const next: Record<PlayerKey, number> = { ...draft.characterLife }
+      next[player] = Math.max(0, value)
+      draft.characterLife = next
     })
   const reset = () => {
     if (
@@ -531,8 +538,8 @@ export default function MatchPage() {
               setSelected(null)
             } else draw('opponent')
           }}
-          onD20={setD20}
-          onCounter={setCounter}
+          onPlayerLife={setPlayerLife}
+          onCharacterLife={setCharacterLife}
         />
         <div className="arena-divider">
           <span>ADVERSÁRIO</span>
@@ -564,8 +571,8 @@ export default function MatchPage() {
               setSelected(null)
             } else draw('player')
           }}
-          onD20={setD20}
-          onCounter={setCounter}
+          onPlayerLife={setPlayerLife}
+          onCharacterLife={setCharacterLife}
         />
         <HandRow
           player="player"
@@ -619,12 +626,6 @@ export default function MatchPage() {
           state={state}
           cardMap={cardMap}
           onClose={() => setMenu(null)}
-          onRotate={(rotation) => {
-            alterCard(menu.locator, (card) => {
-              card.rotation = rotation
-            })
-            setMenu(null)
-          }}
           onFlip={() => {
             alterCard(menu.locator, (card) => {
               card.faceUp = !card.faceUp
@@ -674,8 +675,8 @@ interface BoardProps {
   onPreview: (card: CardInstance) => void
   onMenu: (event: MouseEvent, locator: Locator) => void
   onDeckSelected: () => void
-  onD20: (player: PlayerKey, value: number) => void
-  onCounter: (player: PlayerKey, value: number) => void
+  onPlayerLife: (player: PlayerKey, value: number) => void
+  onCharacterLife: (player: PlayerKey, value: number) => void
 }
 function Board(props: BoardProps) {
   const { player, state, cardMap, dragging, selected } = props
@@ -713,10 +714,10 @@ function Board(props: BoardProps) {
                   widgets={
                     zone === 'main' ? (
                       <MatchWidgets
-                        d20={state.d20?.[player] ?? 0}
-                        counter={state.counter?.[player] ?? 0}
-                        onD20={(value) => props.onD20(player, value)}
-                        onCounter={(value) => props.onCounter(player, value)}
+                        playerLife={state.playerLife?.[player] ?? 0}
+                        characterLife={state.characterLife?.[player] ?? 0}
+                        onPlayerLife={(value) => props.onPlayerLife(player, value)}
+                        onCharacterLife={(value) => props.onCharacterLife(player, value)}
                       />
                     ) : undefined
                   }
@@ -925,66 +926,32 @@ function BoardCard({
   )
 }
 function MatchWidgets({
-  d20,
-  counter,
-  onD20,
-  onCounter,
+  playerLife,
+  characterLife,
+  onPlayerLife,
+  onCharacterLife,
 }: {
-  d20: number
-  counter: number
-  onD20: (value: number) => void
-  onCounter: (value: number) => void
+  playerLife: number
+  characterLife: number
+  onPlayerLife: (value: number) => void
+  onCharacterLife: (value: number) => void
 }) {
-  const [rolling, setRolling] = useState(false)
-  const roll = () => {
-    setRolling(true)
-    onD20(Math.floor(Math.random() * 10))
-    window.setTimeout(() => setRolling(false), 420)
-  }
+  const lifeChip = (label: string, value: number, onChange: (value: number) => void) => (
+    <div className="widget-chip" title={`${label} (sem limite)`}>
+      <span className="widget-label">{label}</span>
+      <button type="button" title="Diminuir" onClick={() => onChange(value - 1)}>
+        <ChevronDown />
+      </button>
+      <span className="widget-value">{value}</span>
+      <button type="button" title="Aumentar" onClick={() => onChange(value + 1)}>
+        <ChevronUp />
+      </button>
+    </div>
+  )
   return (
     <div className="main-widgets" onClick={(e) => e.stopPropagation()}>
-      <button
-        type="button"
-        className="widget-chip widget-d20"
-        onClick={roll}
-        title="D20 — clique para rolar (0–9)"
-      >
-        <svg
-          viewBox="0 0 100 88"
-          className={cn('d20-glyph', rolling && 'd20-glyph--rolling')}
-          aria-hidden="true"
-        >
-          <polygon points="50,2 98,28 98,60 50,86 2,60 2,28" className="d20-shape" />
-          <polygon points="50,14 84,33 84,55 50,74 16,55 16,33" className="d20-face" />
-          <line x1="50" y1="2" x2="50" y2="14" className="d20-edge" />
-          <line x1="98" y1="28" x2="84" y2="33" className="d20-edge" />
-          <line x1="98" y1="60" x2="84" y2="55" className="d20-edge" />
-          <line x1="50" y1="86" x2="50" y2="74" className="d20-edge" />
-          <line x1="2" y1="60" x2="16" y2="55" className="d20-edge" />
-          <line x1="2" y1="28" x2="16" y2="33" className="d20-edge" />
-        </svg>
-        <span className="widget-value">{d20}</span>
-        <span className="sr-only">D20</span>
-      </button>
-      <div className="widget-chip widget-counter" title="Contador (0–9)">
-        <button
-          type="button"
-          title="Diminuir"
-          disabled={counter <= 0}
-          onClick={() => onCounter(counter - 1)}
-        >
-          <ChevronDown />
-        </button>
-        <span className="widget-value">{counter}</span>
-        <button
-          type="button"
-          title="Aumentar"
-          disabled={counter >= 9}
-          onClick={() => onCounter(counter + 1)}
-        >
-          <ChevronUp />
-        </button>
-      </div>
+      {lifeChip('Vida', playerLife, onPlayerLife)}
+      {lifeChip('Personagem', characterLife, onCharacterLife)}
     </div>
   )
 }
@@ -1182,7 +1149,6 @@ interface ContextProps {
   state: MatchSnapshot
   cardMap: Map<string, CardRecord>
   onClose: () => void
-  onRotate: (rotation: Rotation) => void
   onFlip: () => void
   onPreview: () => void
   onDeck: (position: 'top' | 'bottom') => void
@@ -1195,7 +1161,6 @@ function CardContextMenu({
   state,
   cardMap,
   onClose,
-  onRotate,
   onFlip,
   onPreview,
   onDeck,
@@ -1228,20 +1193,6 @@ function CardContextMenu({
           {card?.faceUp ? <EyeOff /> : <Eye />}
           {card?.faceUp ? 'Virar para baixo' : 'Virar para cima'}
         </button>
-        <div className="grid grid-cols-4 gap-1 px-2 py-1">
-          <button className="justify-center" onClick={() => onRotate(0)}>
-            0°
-          </button>
-          <button className="justify-center" onClick={() => onRotate(90)}>
-            90°
-          </button>
-          <button className="justify-center" onClick={() => onRotate(180)}>
-            180°
-          </button>
-          <button className="justify-center" onClick={() => onRotate(270)}>
-            270°
-          </button>
-        </div>
         <button onClick={() => setZonesOpen(!zonesOpen)}>
           <Orbit />
           Mover para zona

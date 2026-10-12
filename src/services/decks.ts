@@ -17,17 +17,24 @@ export async function createDeck(name = 'Novo baralho'): Promise<DeckRecord> {
     name,
     items: [],
     main_character: null,
+    legendary_cards: [],
   })
 }
 
 export async function saveDeck(
   id: string,
-  data: { name: string; items: DeckItem[]; main_character: string | null },
+  data: {
+    name: string
+    items: DeckItem[]
+    main_character: string | null
+    legendary_cards: string[]
+  },
 ): Promise<DeckRecord> {
   return pb.collection<DeckRecord>('decks').update(id, {
     name: data.name,
     items: Array.isArray(data.items) ? data.items : [],
     main_character: data.main_character || null,
+    legendary_cards: Array.isArray(data.legendary_cards) ? data.legendary_cards.slice(0, 3) : [],
   })
 }
 
@@ -39,6 +46,7 @@ export async function duplicateDeck(deck: DeckRecord): Promise<DeckRecord> {
     name: `${deck.name} — cópia`,
     items: Array.isArray(deck.items) ? deck.items : [],
     main_character: deck.main_character || null,
+    legendary_cards: Array.isArray(deck.legendary_cards) ? deck.legendary_cards.slice(0, 3) : [],
   })
 }
 
