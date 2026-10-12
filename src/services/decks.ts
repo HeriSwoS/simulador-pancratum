@@ -12,14 +12,23 @@ export async function getDeck(id: string): Promise<DeckRecord> {
 export async function createDeck(name = 'Novo baralho'): Promise<DeckRecord> {
   const owner = pb.authStore.record?.id
   if (!owner) throw new Error('Entre na sua conta para criar um baralho.')
-  return pb.collection<DeckRecord>('decks').create({ owner, name, items: [], main_character: '' })
+  return pb.collection<DeckRecord>('decks').create({
+    owner,
+    name,
+    items: [],
+    main_character: null,
+  })
 }
 
 export async function saveDeck(
   id: string,
-  data: { name: string; items: DeckItem[]; main_character: string },
+  data: { name: string; items: DeckItem[]; main_character: string | null },
 ): Promise<DeckRecord> {
-  return pb.collection<DeckRecord>('decks').update(id, data)
+  return pb.collection<DeckRecord>('decks').update(id, {
+    name: data.name,
+    items: Array.isArray(data.items) ? data.items : [],
+    main_character: data.main_character || null,
+  })
 }
 
 export async function duplicateDeck(deck: DeckRecord): Promise<DeckRecord> {
@@ -28,8 +37,8 @@ export async function duplicateDeck(deck: DeckRecord): Promise<DeckRecord> {
   return pb.collection<DeckRecord>('decks').create({
     owner,
     name: `${deck.name} — cópia`,
-    items: deck.items,
-    main_character: deck.main_character,
+    items: Array.isArray(deck.items) ? deck.items : [],
+    main_character: deck.main_character || null,
   })
 }
 

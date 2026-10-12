@@ -34,12 +34,17 @@ export default function DecksPage() {
   const create = async () => {
     setCreating(true)
     try {
-      const deck = await createDeck()
+      const deck = await createDeck('Novo baralho')
+      toast({
+        title: 'Baralho criado!',
+        description: 'Abrindo o editor de baralho...',
+      })
       navigate(`/baralhos/${deck.id}`)
     } catch (error) {
+      console.error('Erro ao criar baralho:', error)
       toast({
         variant: 'destructive',
-        title: 'Não foi possível criar',
+        title: 'Não foi possível criar o baralho',
         description: error instanceof Error ? error.message : 'Tente novamente.',
       })
     } finally {

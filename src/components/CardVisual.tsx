@@ -35,9 +35,14 @@ export function CardBack({ className }: { className?: string }) {
         className,
       )}
     >
-      <div className="card-back-sigil">
-        <Shield className="h-1/2 w-1/2" />
-        <span>P</span>
+      <div className="card-back-inner">
+        <div className="card-back-frame">
+          <div className="card-back-sigil">
+            <Shield className="h-1/2 w-1/2" />
+            <span>P</span>
+          </div>
+          <span className="card-back-word">PANCRATUM</span>
+        </div>
       </div>
     </div>
   )
